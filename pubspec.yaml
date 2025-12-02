@@ -1,0 +1,58 @@
+name: siakad
+description: "A new Flutter project."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ICONS
+  cupertino_icons: ^1.0.8
+
+  # HTTP REQUEST
+  dio: ^5.9.0
+
+  # LOCAL STORAGE
+  shared_preferences: ^2.5.3
+
+  # UI ALERT POPUP
+  quickalert: ^1.1.0
+
+  # FORMAT TANGGAL
+  intl: ^0.20.2
+
+  # IMAGE PICKER
+  image_picker: ^1.0.7
+
+  # CAMERA
+  camera: ^0.10.5+5
+
+  # LAUNCH URL / OPEN FILE / OPEN BROWSER
+  url_launcher: ^6.3.1
+
+  # GPS LOCATION
+  geolocator: ^11.0.0
+
+  # MAP (OPENSTREETMAP - NO API KEY)
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+  # BARCODE
+  barcode_widget: ^2.0.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/

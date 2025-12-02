@@ -1,0 +1,437 @@
+import 'package:flutter/material.dart';
+
+// Model untuk Mata Kuliah dalam KHS
+class MataKuliahKHS {
+  final String kodeMk;
+  final String namaMataKuliah;
+  final int sks;
+  final String nilai;
+  final int bobot;
+
+  const MataKuliahKHS({
+    required this.kodeMk,
+    required this.namaMataKuliah,
+    required this.sks,
+    required this.nilai,
+    required this.bobot,
+  });
+}
+
+// Model untuk Semester KHS
+class SemesterKHS {
+  final String nama;
+  final String nim;
+  final String semester;
+  final String status;
+  final double ipk;
+  final String kelas;
+  final List<MataKuliahKHS> mataKuliah;
+  final String keterangan;
+  final double sksPerIpk;
+  final double ipkAkumulatif;
+  final String tugasAkhir;
+  final String dosenPembimbingAkademik;
+
+  const SemesterKHS({
+    required this.nama,
+    required this.nim,
+    required this.semester,
+    required this.status,
+    required this.ipk,
+    required this.kelas,
+    required this.mataKuliah,
+    this.keterangan = '',
+    this.sksPerIpk = 0.0,
+    this.ipkAkumulatif = 0.0,
+    this.tugasAkhir = 'Belum',
+    this.dosenPembimbingAkademik = 'MUHAMMAD HERY SANTOSA M.Si',
+  });
+}
+
+// Data Dummy KHS (6 Semester)
+class KHSData {
+  static const String namaMahasiswa = "Zulyarachma Utasaputri";
+  static const String nim = "STI202303597";
+
+  static final List<SemesterKHS> semuaSemester = [
+    // Semester 1
+    SemesterKHS(
+      nama: namaMahasiswa,
+      nim: nim,
+      semester: "Semester Satu",
+      status: "Aktif",
+      ipk: 4.0,
+      kelas: "A.1",
+      keterangan: "MK = Mata Kuliah yang ditempuh\nCatatan Studi\nSKS Semester / IPS = 0sks\nSKS Akumulatif / IPK = 27sks / 3....\nTugas Akhir = Belum",
+      sksPerIpk: 0.0,
+      ipkAkumulatif: 27.0,
+      mataKuliah: const [
+        MataKuliahKHS(
+          kodeMk: "STI110056",
+          namaMataKuliah: "Data Mining",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI110079",
+          namaMataKuliah: "Pancasila",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI110088",
+          namaMataKuliah: "Etika Bisnis",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI1100776",
+          namaMataKuliah: "Kewarganegaraan",
+          sks: 2,
+          nilai: "B",
+          bobot: 3,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI1100854",
+          namaMataKuliah: "Agama",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI110089",
+          namaMataKuliah: "Bahasa Indonesia",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI1100800",
+          namaMataKuliah: "Kewirausahaan",
+          sks: 4,
+          nilai: "B",
+          bobot: 3,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI1100567",
+          namaMataKuliah: "Logika Fuzzy",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI1100997",
+          namaMataKuliah: "English",
+          sks: 2,
+          nilai: "B",
+          bobot: 3,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI110065",
+          namaMataKuliah: "Manajemen",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+      ],
+    ),
+
+    // Semester 2
+    SemesterKHS(
+      nama: namaMahasiswa,
+      nim: nim,
+      semester: "Semester Dua",
+      status: "Aktif",
+      ipk: 3.8,
+      kelas: "A.1",
+      mataKuliah: const [
+        MataKuliahKHS(
+          kodeMk: "STI210056",
+          namaMataKuliah: "Algoritma dan Struktur Data",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI210079",
+          namaMataKuliah: "Basis Data",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI210088",
+          namaMataKuliah: "Pemrograman Web",
+          sks: 3,
+          nilai: "B",
+          bobot: 3,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI210776",
+          namaMataKuliah: "Matematika Diskrit",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI210854",
+          namaMataKuliah: "Sistem Operasi",
+          sks: 3,
+          nilai: "B",
+          bobot: 3,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI210089",
+          namaMataKuliah: "Jaringan Komputer",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+      ],
+    ),
+
+    // Semester 3
+    SemesterKHS(
+      nama: namaMahasiswa,
+      nim: nim,
+      semester: "Semester Tiga",
+      status: "Aktif",
+      ipk: 4.0,
+      kelas: "A.1",
+      mataKuliah: const [
+        MataKuliahKHS(
+          kodeMk: "STI310056",
+          namaMataKuliah: "Pemrograman Mobile",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI310079",
+          namaMataKuliah: "Keamanan Sistem",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI310088",
+          namaMataKuliah: "Analisis dan Desain Sistem",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI310776",
+          namaMataKuliah: "Manajemen Proyek",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI310854",
+          namaMataKuliah: "Cloud Computing",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+      ],
+    ),
+
+    // Semester 4
+    SemesterKHS(
+      nama: namaMahasiswa,
+      nim: nim,
+      semester: "Semester Empat",
+      status: "Aktif",
+      ipk: 3.8,
+      kelas: "A.1",
+      mataKuliah: const [
+        MataKuliahKHS(
+          kodeMk: "STI410056",
+          namaMataKuliah: "Kecerdasan Buatan",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI410079",
+          namaMataKuliah: "Machine Learning",
+          sks: 4,
+          nilai: "B",
+          bobot: 3,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI410088",
+          namaMataKuliah: "Internet of Things",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI410776",
+          namaMataKuliah: "Pengolahan Citra Digital",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI410854",
+          namaMataKuliah: "Data Science",
+          sks: 4,
+          nilai: "B",
+          bobot: 3,
+        ),
+      ],
+    ),
+
+    // Semester 5 - Sinkron dengan jadwal
+    SemesterKHS(
+      nama: namaMahasiswa,
+      nim: nim,
+      semester: "Semester Lima",
+      status: "Aktif",
+      ipk: 3.9,
+      kelas: "A.1",
+      mataKuliah: const [
+        MataKuliahKHS(
+          kodeMk: "STI510001",
+          namaMataKuliah: "Kewarganegaraan",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510006",
+          namaMataKuliah: "Pancasila",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510007",
+          namaMataKuliah: "Manajemen Bisnis",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510107",
+          namaMataKuliah: "Agama",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510110",
+          namaMataKuliah: "Technopreneurship",
+          sks: 2,
+          nilai: "B",
+          bobot: 3,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510018",
+          namaMataKuliah: "Rangkaian Digital",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510116",
+          namaMataKuliah: "Mobile Programming",
+          sks: 3,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510117",
+          namaMataKuliah: "Data Mining",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510127",
+          namaMataKuliah: "Etika Profesi dan Bimbingan Karir",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI510008",
+          namaMataKuliah: "Bahasa Indonesia",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+      ],
+    ),
+
+    // Semester 6
+    SemesterKHS(
+      nama: namaMahasiswa,
+      nim: nim,
+      semester: "Semester Enam",
+      status: "Aktif",
+      ipk: 3.8,
+      kelas: "A.1",
+      mataKuliah: const [
+        MataKuliahKHS(
+          kodeMk: "STI610056",
+          namaMataKuliah: "Metodologi Penelitian",
+          sks: 2,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI610079",
+          namaMataKuliah: "Skripsi",
+          sks: 6,
+          nilai: "A",
+          bobot: 4,
+        ),
+        MataKuliahKHS(
+          kodeMk: "STI610088",
+          namaMataKuliah: "Kerja Praktik",
+          sks: 4,
+          nilai: "A",
+          bobot: 4,
+        ),
+      ],
+    ),
+  ];
+}
+
+// Model untuk KTM (Kartu Tanda Mahasiswa)
+class MahasiswaKTM {
+  final String nama;
+  final String nim;
+  final String tempatLahir;
+  final String tanggalLahir;
+  final String jurusan;
+  final String programStudi;
+
+  const MahasiswaKTM({
+    required this.nama,
+    required this.nim,
+    required this.tempatLahir,
+    required this.tanggalLahir,
+    required this.jurusan,
+    required this.programStudi,
+  });
+}
+
+// Data Dummy untuk KTM
+class KTMData {
+  static const MahasiswaKTM mahasiswa = MahasiswaKTM(
+    nama: "Zulyarachma Utasaputri",
+    nim: "STI202303599",
+    tempatLahir: "Purwokerto",
+    tanggalLahir: "20 Juni 2005",
+    jurusan: "Teknik Informatika",
+    programStudi: "Sistem Informasi",
+  );
+}
+

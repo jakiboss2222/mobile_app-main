@@ -33,12 +33,10 @@ class _AbsenPagesState extends State<AbsenPages> {
   Map<String, dynamic>? user;
   int? currentIdKrs;
   String selectedDay = "Senin";
-  int selectedMeeting = 1;
 
   final List<String> days = [
     'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
   ];
-  final List<int> meetings = List.generate(16, (index) => index + 1);
 
 
   @override
@@ -160,11 +158,8 @@ class _AbsenPagesState extends State<AbsenPages> {
       final response = await ApiService.detailKrs(idKrs: selectedKrsId!);
       List<dynamic> tempMatkul = response['data'] ?? [];
 
-      // Cek status absensi dengan meeting number yang dipilih
-      for (var mk in tempMatkul) {
-        mk['meeting_number'] = selectedMeeting; // Store for later use
-        mk['sudah_absen'] = await _cekStatusAbsensi(mk['id'], selectedMeeting, dio);
-      }
+      // Tidak perlu cek status karena user akan akses via History page
+      // untuk melihat status masing-masing pertemuan
 
       setState(() {
         myKrsCourses = tempMatkul;
@@ -199,20 +194,6 @@ class _AbsenPagesState extends State<AbsenPages> {
   }
 
 
-
-  // Method untuk cek apakah sudah absen dengan meeting number dinamis
-  Future<bool> _cekStatusAbsensi(int idKrsDetail, int pertemuan, Dio dio) async {
-    try {
-      final url = "${ApiService.baseUrl}absensi/detail?id_krs_detail=$idKrsDetail&pertemuan=$pertemuan";
-      final res = await dio.get(url);
-      
-      // Jika ada data absensi, berarti sudah absen
-      return res.data['data'] != null;
-    } catch (e) {
-      // Jika error (404 atau lainnya), berarti belum absen
-      return false;
-    }
-  }
 
   Future<void> _openZoom(String? url) async {
     if (url == null || url.isEmpty) {
@@ -419,95 +400,44 @@ class _AbsenPagesState extends State<AbsenPages> {
 
               const SizedBox(height: 15),
 
-              // Day and Meeting Selection
+              // Day Selection
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Day Dropdown
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Hari",
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                          DropdownButton<String>(
-                            value: selectedDay,
-                            dropdownColor: const Color(0xff1C2A4D),
-                            isExpanded: true,
-                            underline: Container(),
-                            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                            items: days.map((String day) {
-                              return DropdownMenuItem<String>(
-                                value: day,
-                                child: Text(day),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                setState(() {
-                                  selectedDay = newValue;
-                                  _filterCourses();
-                                });
-                              }
-                            },
-                          ),
-                        ],
+                    const Text(
+                      "Hari",
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
                       ),
                     ),
-                    
-                    const SizedBox(width: 16),
-                    
-                    // Meeting Dropdown
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Pertemuan",
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                          DropdownButton<int>(
-                            value: selectedMeeting,
-                            dropdownColor: const Color(0xff1C2A4D),
-                            isExpanded: true,
-                            underline: Container(),
-                            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                            items: meetings.map((int meeting) {
-                              return DropdownMenuItem<int>(
-                                value: meeting,
-                                child: Text("Ke-$meeting"),
-                              );
-                            }).toList(),
-                            onChanged: (int? newValue) async {
-                              if (newValue != null) {
-                                setState(() {
-                                  selectedMeeting = newValue;
-                                });
-                                // Reload data to check attendance for new meeting number
-                                await _getKrsData();
-                                _filterCourses();
-                              }
-                            },
-                          ),
-                        ],
-                      ),
+                    DropdownButton<String>(
+                      value: selectedDay,
+                      dropdownColor: const Color(0xff1C2A4D),
+                      isExpanded: true,
+                      underline: Container(),
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      items: days.map((String day) {
+                        return DropdownMenuItem<String>(
+                          value: day,
+                          child: Text(day),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            selectedDay = newValue;
+                            _filterCourses();
+                          });
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -641,34 +571,10 @@ class _AbsenPagesState extends State<AbsenPages> {
                                         fontSize: 12,
                                       ),
                                     ),
-                                    
-                                    // Meeting Number Indicator
-                                    if (item['meeting_number'] != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.calendar_today,
-                                              size: 12,
-                                              color: Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              "Pertemuan ke-${item['meeting_number']}",
-                                              style: TextStyle(
-                                                color: Colors.grey[600],
-                                                fontSize: 11,
-                                                fontStyle: FontStyle.italic,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
 
                                     const SizedBox(height: 12),
 
-                                      // Action Buttons - Show for ALL courses
+                                      // Action Buttons
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
@@ -682,7 +588,7 @@ class _AbsenPagesState extends State<AbsenPages> {
                                           if (item['zoom_link'] != null && item['zoom_link'].toString().isNotEmpty)
                                             const SizedBox(width: 10),
 
-                                          // History Button (Riwayat)
+                                          // History Button (Riwayat) - Main action for attendance
                                           _buildActionButton(
                                             icon: Icons.history,
                                             color: const Color(0xffE67E22), // Orange
@@ -707,57 +613,6 @@ class _AbsenPagesState extends State<AbsenPages> {
                                                   ),
                                                 ),
                                               );
-                                            },
-                                          ),
-                                          const SizedBox(width: 10),
-                                          // Absen Button - Show details if already submitted, or submit form if not
-                                          _buildActionButton(
-                                            icon: item['sudah_absen'] == true
-                                                ? Icons.assignment_turned_in
-                                                : Icons.check_circle,
-                                            color: item['sudah_absen'] == true
-                                                ? const Color(0xff4A90E2)
-                                                : Colors.green,
-                                            onTap: () {
-                                              // Only allow if enrolled in KRS
-                                              if (item['is_taken'] != true || item['id_krs_detail'] == null) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text('Pilih semester yang sesuai dengan mata kuliah yang ingin diabsen'),
-                                                    backgroundColor: Colors.orange,
-                                                  ),
-                                                );
-                                                return;
-                                              }
-                                              
-                                              // Check if already submitted
-                                              if (item['sudah_absen'] == true) {
-                                                // Show attendance details
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => DetailAbsensiPage(
-                                                      idKrsDetail: item['id_krs_detail'],
-                                                      pertemuan: item['meeting_number'] ?? 1,
-                                                      namaMatkul: item['nama_matakuliah'],
-                                                    ),
-                                                  ),
-                                                );
-                                              } else {
-                                                // Navigate to submit page
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => AbsenSubmitPage(
-                                                      idKrsDetail: item['id_krs_detail'],
-                                                      pertemuan: item['meeting_number'] ?? 1,
-                                                      namaMatkul: item['nama_matakuliah'],
-                                                    ),
-                                                  ),
-                                                ).then((_) {
-                                                  _loadInitialData();
-                                                });
-                                              }
                                             },
                                           ),
                                         ],

@@ -25,42 +25,7 @@ class _KehadiranKewarganegaraanPageState
     {"tanggal": "08/12/2025", "status": "Hadir"},
   ];
 
-  void pilihStatus(int index) {
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text("Pilih Kehadiran",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Divider(),
-              _opsiStatus(index, "Hadir", Colors.green),
-              _opsiStatus(index, "Izin", Colors.orange),
-              _opsiStatus(index, "Alfa", Colors.red),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
-  Widget _opsiStatus(int index, String status, Color color) {
-    return ListTile(
-      title: Text(status, style: TextStyle(color: color, fontSize: 16)),
-      onTap: () {
-        setState(() {
-          data[index]["status"] = status;
-        });
-        Navigator.pop(context);
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,29 +104,26 @@ class _KehadiranKewarganegaraanPageState
 
                         SizedBox(width: 10),
 
-                        // STATUS (click to change)
+                        // STATUS (read-only)
                         Expanded(
-                          child: InkWell(
-                            onTap: () => pilihStatus(index),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(22),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  item["status"]!,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: item["status"] == "Hadir"
-                                        ? Colors.green
-                                        : item["status"] == "Izin"
-                                            ? Colors.orange
-                                            : Colors.red,
-                                  ),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: Center(
+                              child: Text(
+                                item["status"]!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: item["status"] == "Hadir"
+                                      ? Colors.green
+                                      : item["status"] == "Izin"
+                                          ? Colors.orange
+                                          : Colors.red,
                                 ),
                               ),
                             ),

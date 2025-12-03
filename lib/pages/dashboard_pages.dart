@@ -14,6 +14,7 @@ import './kehadiran_pages.dart';
 import './ipk_kumulatif_page.dart'; // Impor IpkKumulatifPage
 import './khs_list_page.dart'; // Impor KhsListPage
 import './ktm_page.dart'; // Impor KtmPage
+import './absen_pages.dart'; // Impor AbsenPages
 
 class DashboardPages extends StatefulWidget {
   const DashboardPages({super.key});
@@ -35,6 +36,7 @@ class _DashboardPagesState extends State<DashboardPages> {
     {"icon": Icons.menu_book_outlined, "label": "KRS"},
     {"icon": Icons.assignment_outlined, "label": "KHS"},
     {"icon": Icons.badge_outlined, "label": "KTM"},
+    {"icon": Icons.camera_alt_outlined, "label": "Absen"},
   ];
 
   @override
@@ -133,6 +135,13 @@ class _DashboardPagesState extends State<DashboardPages> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const KtmPage()),
+        );
+        break;
+
+      case "Absen":
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AbsenPages()),
         );
         break;
 

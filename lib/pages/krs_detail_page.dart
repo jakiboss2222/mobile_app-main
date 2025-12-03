@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import '../api/api_service.dart';
-import './absen_submit_page.dart';
-import './detail_absensi_page.dart';
 
 class KrsDetailPage extends StatefulWidget {
   final int idKrs;
@@ -33,28 +29,7 @@ class _KrsDetailPageState extends State<KrsDetailPage> {
     _getDetailKrs();
   }
 
-  Future<void> _openZoom(String? url) async {
-    if (url == null || url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Link Zoom tidak tersedia"),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
 
-    final Uri uri = Uri.parse(url);
-
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Gagal membuka Zoom"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 
   Future<void> _hapusMatakuliah(int idKrsDetail) async {
     final prefs = await SharedPreferences.getInstance();
@@ -101,11 +76,6 @@ class _KrsDetailPageState extends State<KrsDetailPage> {
       final res = await dio.get(url);
 
       List<dynamic> tempMatkul = res.data['data'] ?? [];
-      
-      // Cek status absensi untuk setiap matkul
-      for (var mk in tempMatkul) {
-        mk['sudah_absen'] = await _cekStatusAbsensi(mk['id'], dio);
-      }
 
       setState(() {
         daftarMatkul = tempMatkul;
@@ -122,19 +92,7 @@ class _KrsDetailPageState extends State<KrsDetailPage> {
     }
   }
 
-  // Method untuk cek apakah sudah absen
-  Future<bool> _cekStatusAbsensi(int idKrsDetail, Dio dio) async {
-    try {
-      final url = "${ApiService.baseUrl}absensi/detail?id_krs_detail=$idKrsDetail&pertemuan=1";
-      final res = await dio.get(url);
-      
-      // Jika ada data absensi, berarti sudah absen
-      return res.data['data'] != null;
-    } catch (e) {
-      // Jika error (404 atau lainnya), berarti belum absen
-      return false;
-    }
-  }
+
 
   void _tambahMatkulModal() {
     showModalBottomSheet(
@@ -214,34 +172,6 @@ class _KrsDetailPageState extends State<KrsDetailPage> {
                                     ),
                                   ),
                                 ),
-                                // VALIDASI STATUS ABSEN
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: mk['sudah_absen'] == true
-                                        ? Colors.green.withOpacity(0.1)
-                                        : Colors.red.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: mk['sudah_absen'] == true
-                                          ? Colors.green
-                                          : Colors.red,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    mk['sudah_absen'] == true
-                                        ? "Sudah Absen"
-                                        : "Belum Absen",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: mk['sudah_absen'] == true
-                                          ? Colors.green
-                                          : Colors.red,
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                             const SizedBox(height: 3),
@@ -254,80 +184,6 @@ class _KrsDetailPageState extends State<KrsDetailPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                // TOMBOL ZOOM
-                                SizedBox(
-                                  width: 42,
-                                  height: 42,
-                                  child: Material(
-                                    color: Colors.blueGrey.shade600,
-                                    shape: const CircleBorder(),
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.video_camera_front,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                      onPressed: () =>
-                                          _openZoom(mk['zoom_link']),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-
-                                // TOMBOL LIHAT HASIL ABSEN (Hanya jika sudah absen)
-                                if (mk['sudah_absen'] == true)
-                                  SizedBox(
-                                    width: 42,
-                                    height: 42,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.assignment_turned_in,
-                                        color: Colors.blue,
-                                        size: 24,
-                                      ),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                DetailAbsensiPage(
-                                              idKrsDetail: mk['id'],
-                                              pertemuan: 1,
-                                              namaMatkul: mk['nama_matakuliah'],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-
-                                // TOMBOL SUBMIT ABSEN (Hanya jika belum absen)
-                                if (mk['sudah_absen'] != true)
-                                  SizedBox(
-                                    width: 42,
-                                    height: 42,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.check_circle,
-                                        color: Colors.green,
-                                        size: 24,
-                                      ),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                AbsenSubmitPage(
-                                              idKrsDetail: mk['id'],
-                                              pertemuan: 1,
-                                              namaMatkul: mk['nama_matakuliah'],
-                                            ),
-                                          ),
-                                        ).then((_) => _getDetailKrs());
-                                      },
-                                    ),
-                                  ),
-
                                 // TOMBOL HAPUS
                                 SizedBox(
                                   width: 42,

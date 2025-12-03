@@ -23,11 +23,11 @@ class _JadwalPagesState extends State<JadwalPages> {
     _loadJadwal();
   }
 
-  // Load jadwal from API
+  // Load jadwal - using dummy data
   Future<void> _loadJadwal() async {
     setState(() => isLoading = true);
 
-    try {
+        try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
 
@@ -38,28 +38,75 @@ class _JadwalPagesState extends State<JadwalPages> {
       
       if (response.data != null && response.data['jadwals'] != null) {
         List<dynamic> data = response.data['jadwals'];
-        
-        setState(() {
+       
+      
+      setState(() {
           jadwal = data.map((item) => item as Map<String, dynamic>).toList();
-          filteredJadwal = jadwal;
-          isLoading = false;
-        });
-      } else {
+        // Sort jadwal by day, with today's schedule first
+        jadwal = _sortJadwalByDay(jadwal);
+        filteredJadwal = jadwal;
+        isLoading = false;
+      });
+       } else {
         setState(() => isLoading = false);
       }
     } catch (e) {
       debugPrint("Error loading jadwal: $e");
       setState(() => isLoading = false);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Gagal memuat jadwal"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
+  }
+
+  // Sort jadwal by day of week, with today's schedule appearing first
+  List<Map<String, dynamic>> _sortJadwalByDay(List<Map<String, dynamic>> jadwalList) {
+    if (jadwalList.isEmpty) return jadwalList;
+
+    // Map hari ke index (Monday = 1, Sunday = 7)
+    final Map<String, int> dayToIndex = {
+      'senin': 1,
+      'selasa': 2,
+      'rabu': 3,
+      'kamis': 4,
+      'jumat': 5,
+      'sabtu': 6,
+      'minggu': 7,
+    };
+
+    // Get current day of week (1 = Monday, 7 = Sunday)
+    final now = DateTime.now();
+    final currentDayIndex = now.weekday;
+
+    // Sort jadwal
+    jadwalList.sort((a, b) {
+      final String dayA = (a['nama_hari'] ?? '').toString().toLowerCase();
+      final String dayB = (b['nama_hari'] ?? '').toString().toLowerCase();
+      
+      final int indexA = dayToIndex[dayA] ?? 8;
+      final int indexB = dayToIndex[dayB] ?? 8;
+      
+      // Calculate distance from current day
+      // Today's schedule gets priority (distance = 0)
+      // Tomorrow gets distance = 1, etc.
+      int distanceA = (indexA - currentDayIndex) % 7;
+      int distanceB = (indexB - currentDayIndex) % 7;
+      
+      // If distance is negative, add 7 to make it positive
+      if (distanceA < 0) distanceA += 7;
+      if (distanceB < 0) distanceB += 7;
+      
+      // Compare distances
+      final dayComparison = distanceA.compareTo(distanceB);
+      
+      // If same day, sort by time
+      if (dayComparison == 0) {
+        final String timeA = a['jam_mulai'] ?? '';
+        final String timeB = b['jam_mulai'] ?? '';
+        return timeA.compareTo(timeB);
+      }
+      
+      return dayComparison;
+    });
+
+    return jadwalList;
   }
 
   void filterSearch(String query) {
@@ -76,45 +123,23 @@ class _JadwalPagesState extends State<JadwalPages> {
     });
   }
 
-  // Check if schedule is currently ongoing
-  bool _isOngoing(Map<String, dynamic> item) {
-    try {
-      final now = DateTime.now();
-      
-      // 1. Check Day
-      final Map<String, int> dayToIndex = {
-        'senin': 1, 'selasa': 2, 'rabu': 3, 
-        'kamis': 4, 'jumat': 5, 'sabtu': 6, 'minggu': 7
-      };
-      
-      final String dayName = (item['nama_hari'] ?? '').toString().toLowerCase();
-      final int scheduleDay = dayToIndex[dayName] ?? 0;
-      
-      if (now.weekday != scheduleDay) return false;
-      
-      // 2. Check Time
-      final String startStr = item['jam_mulai'] ?? '00:00';
-      final String endStr = item['jam_selesai'] ?? '00:00';
-      
-      final startParts = startStr.split(':');
-      final endParts = endStr.split(':');
-      
-      if (startParts.length != 2 || endParts.length != 2) return false;
-      
-      final int startHour = int.parse(startParts[0]);
-      final int startMinute = int.parse(startParts[1]);
-      
-      final int endHour = int.parse(endParts[0]);
-      final int endMinute = int.parse(endParts[1]);
-      
-      final int currentMinutes = now.hour * 60 + now.minute;
-      final int startTotalMinutes = startHour * 60 + startMinute;
-      final int endTotalMinutes = endHour * 60 + endMinute;
-      
-      return currentMinutes >= startTotalMinutes && currentMinutes < endTotalMinutes;
-    } catch (e) {
-      return false;
-    }
+  // Check if schedule is for today
+  bool _isToday(Map<String, dynamic> jadwalItem) {
+    final Map<String, int> dayToIndex = {
+      'senin': 1,
+      'selasa': 2,
+      'rabu': 3,
+      'kamis': 4,
+      'jumat': 5,
+      'sabtu': 6,
+      'minggu': 7,
+    };
+    
+    final String day = (jadwalItem['nama_hari'] ?? '').toString().toLowerCase();
+    final int dayIndex = dayToIndex[day] ?? 0;
+    final int currentDayIndex = DateTime.now().weekday;
+    
+    return dayIndex == currentDayIndex;
   }
 
   @override
@@ -192,19 +217,19 @@ class _JadwalPagesState extends State<JadwalPages> {
                             itemCount: filteredJadwal.length,
                             itemBuilder: (context, index) {
                               final item = filteredJadwal[index];
-                              final bool isOngoing = _isOngoing(item);
+                              final bool isToday = _isToday(item);
                               
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: isOngoing 
-                                      ? const Color(0xff2d5aa0) // Brighter blue for ongoing
+                                  color: isToday 
+                                      ? const Color(0xff2d5aa0) // Brighter blue for today
                                       : const Color(0xff284169),
                                   borderRadius: BorderRadius.circular(20),
-                                  border: isOngoing
+                                  border: isToday
                                       ? Border.all(
-                                          color: Colors.greenAccent, // Green border for ongoing
+                                          color: const Color(0xFF4FC3F7), // Cyan accent border
                                           width: 2,
                                         )
                                       : null,
@@ -219,7 +244,7 @@ class _JadwalPagesState extends State<JadwalPages> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Kode & SKS & Status Badge
+                                    // Kode & SKS & Badge Hari Ini
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
@@ -234,7 +259,7 @@ class _JadwalPagesState extends State<JadwalPages> {
                                                   fontSize: 15,
                                                 ),
                                               ),
-                                              if (isOngoing) ...[
+                                              if (isToday) ...[
                                                 const SizedBox(width: 8),
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(
@@ -242,11 +267,16 @@ class _JadwalPagesState extends State<JadwalPages> {
                                                     vertical: 3,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.green,
+                                                    gradient: const LinearGradient(
+                                                      colors: [
+                                                        Color(0xFF4FC3F7),
+                                                        Color(0xFF29B6F6),
+                                                      ],
+                                                    ),
                                                     borderRadius: BorderRadius.circular(12),
                                                   ),
                                                   child: const Text(
-                                                    "Sedang Berjalan",
+                                                    "Hari Ini",
                                                     style: TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 10,

@@ -339,24 +339,33 @@ class _AbsenPagesState extends State<AbsenPages> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          ...availableKrs.map((krs) => ListTile(
-                            title: Text(
-                              "${krs['tahun_ajaran']} - Semester ${krs['semester']}",
-                              style: const TextStyle(color: Colors.white),
+                          Flexible(
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: availableKrs.length,
+                              itemBuilder: (context, index) {
+                                final krs = availableKrs[index];
+                                return ListTile(
+                                  title: Text(
+                                    "${krs['tahun_ajaran']} - Semester ${krs['semester']}",
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                  trailing: selectedKrsId == krs['id']
+                                      ? const Icon(Icons.check, color: Colors.green)
+                                      : null,
+                                  onTap: () async {
+                                    setState(() {
+                                      selectedKrsId = krs['id'];
+                                      selectedKrsLabel = "${krs['tahun_ajaran']} - Semester ${krs['semester']}";
+                                    });
+                                    Navigator.pop(context);
+                                    await _getKrsData();
+                                    _filterCourses();
+                                  },
+                                );
+                              },
                             ),
-                            trailing: selectedKrsId == krs['id']
-                                ? const Icon(Icons.check, color: Colors.green)
-                                : null,
-                            onTap: () async {
-                              setState(() {
-                                selectedKrsId = krs['id'];
-                                selectedKrsLabel = "${krs['tahun_ajaran']} - Semester ${krs['semester']}";
-                              });
-                              Navigator.pop(context);
-                              await _getKrsData();
-                              _filterCourses();
-                            },
-                          )),
+                          ),
                         ],
                       ),
                     ),
@@ -578,20 +587,30 @@ class _AbsenPagesState extends State<AbsenPages> {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
-                                          // Camera Button (Zoom) - Only if zoom link exists
-                                          if (item['zoom_link'] != null && item['zoom_link'].toString().isNotEmpty)
-                                            _buildActionButton(
-                                              icon: Icons.video_camera_front,
-                                              color: const Color(0xff5A6C7D),
-                                              onTap: () => _openZoom(item['zoom_link']),
-                                            ),
-                                          if (item['zoom_link'] != null && item['zoom_link'].toString().isNotEmpty)
-                                            const SizedBox(width: 10),
-
-                                          // History Button (Riwayat) - Main action for attendance
+                                          // Zoom Button - Always show
                                           _buildActionButton(
-                                            icon: Icons.history,
-                                            color: const Color(0xffE67E22), // Orange
+                                            icon: Icons.video_camera_front,
+                                            color: const Color(0xff5A6C7D),
+                                            onTap: () {
+                                              // Check if zoom link exists
+                                              if (item['zoom_link'] != null && item['zoom_link'].toString().isNotEmpty) {
+                                                _openZoom(item['zoom_link']);
+                                              } else {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Tidak ada link Zoom untuk mata kuliah ini'),
+                                                    backgroundColor: Colors.orange,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                          const SizedBox(width: 10),
+
+                                          // Attendance Button with Check Icon
+                                          _buildActionButton(
+                                            icon: Icons.check_circle,
+                                            color: const Color(0xff4CAF50), // Green
                                             onTap: () {
                                               if (item['is_taken'] != true || item['id_krs_detail'] == null) {
                                                 ScaffoldMessenger.of(context).showSnackBar(

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:camera/camera.dart';
 
@@ -32,6 +33,9 @@ class _AbsenSubmitPageState extends State<AbsenSubmitPage> {
 
   Uint8List? imageBytes;
   Position? position;
+  
+  // Meeting number can be overridden by user
+  late int currentPertemuan;
 
   bool isCameraReady = false;
   bool isSubmitting = false;
@@ -41,6 +45,7 @@ class _AbsenSubmitPageState extends State<AbsenSubmitPage> {
   @override
   void initState() {
     super.initState();
+    currentPertemuan = widget.pertemuan; // Initialize with calculated value
     _initializeCamera();
     _checkAndRequestLocation();
   }
@@ -263,11 +268,18 @@ class _AbsenSubmitPageState extends State<AbsenSubmitPage> {
     setState(() => isSubmitting = true);
 
     try {
+      // Get authorization token
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('auth_token');
+      
       Dio dio = Dio();
+      if (token != null) {
+        dio.options.headers['Authorization'] = 'Bearer $token';
+      }
 
       final form = FormData.fromMap({
         "id_krs_detail": widget.idKrsDetail,
-        "pertemuan": widget.pertemuan,
+        "pertemuan": currentPertemuan, // Use current (possibly overridden) value
         "latitude": position!.latitude,
         "longitude": position!.longitude,
         "foto": MultipartFile.fromBytes(

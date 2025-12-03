@@ -31,14 +31,48 @@ class _AbsenPagesState extends State<AbsenPages> {
   bool isLoading = true;
   Map<String, dynamic>? user;
   int? currentIdKrs;
-  DateTime selectedDate = DateTime.now();
+  String selectedDay = "Senin";
+  int selectedMeeting = 1;
+
+  final List<String> days = [
+    'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'
+  ];
+  final List<int> meetings = List.generate(16, (index) => index + 1);
 
 
   @override
   void initState() {
     super.initState();
     initializeDateFormatting('id_ID', null);
+    _setInitialDay();
     _loadInitialData();
+  }
+
+  void _setInitialDay() {
+    var now = DateTime.now();
+    var dayName = DateFormat('EEEE', 'id_ID').format(now);
+    // Map English names just in case locale isn't perfect or to be safe
+    final dayMap = {
+      'Monday': 'Senin',
+      'Tuesday': 'Selasa',
+      'Wednesday': 'Rabu',
+      'Thursday': 'Kamis',
+      'Friday': 'Jumat',
+      'Saturday': 'Sabtu',
+      'Sunday': 'Minggu',
+    };
+    // If it's already Indonesian (Senin, etc) from DateFormat('id_ID'), great. 
+    // If it returns English, map it.
+    // Note: DateFormat('EEEE', 'id_ID') usually returns Senin, Selasa etc.
+    // But let's check if it matches one of our days.
+    
+    // Simple normalization
+    if (days.contains(dayName)) {
+      selectedDay = dayName;
+    } else if (dayMap.containsKey(dayName)) {
+      selectedDay = dayMap[dayName]!;
+    }
+    // else default is Senin
   }
 
   Future<void> _loadInitialData() async {
@@ -53,7 +87,7 @@ class _AbsenPagesState extends State<AbsenPages> {
         _getAllSchedules(),
         _getKrsData(),
       ]);
-      _filterByDate();
+      _filterCourses();
     }
     setState(() => isLoading = false);
   }
@@ -125,9 +159,10 @@ class _AbsenPagesState extends State<AbsenPages> {
       final response = await ApiService.detailKrs(idKrs: selectedKrsId!);
       List<dynamic> tempMatkul = response['data'] ?? [];
 
-      // Cek status absensi
+      // Cek status absensi dengan meeting number yang dipilih
       for (var mk in tempMatkul) {
-        mk['sudah_absen'] = await _cekStatusAbsensi(mk['id'], dio);
+        mk['meeting_number'] = selectedMeeting; // Store for later use
+        mk['sudah_absen'] = await _cekStatusAbsensi(mk['id'], selectedMeeting, dio);
       }
 
       setState(() {
@@ -164,10 +199,10 @@ class _AbsenPagesState extends State<AbsenPages> {
 
 
 
-  // Method untuk cek apakah sudah absen
-  Future<bool> _cekStatusAbsensi(int idKrsDetail, Dio dio) async {
+  // Method untuk cek apakah sudah absen dengan meeting number dinamis
+  Future<bool> _cekStatusAbsensi(int idKrsDetail, int pertemuan, Dio dio) async {
     try {
-      final url = "${ApiService.baseUrl}absensi/detail?id_krs_detail=$idKrsDetail&pertemuan=1";
+      final url = "${ApiService.baseUrl}absensi/detail?id_krs_detail=$idKrsDetail&pertemuan=$pertemuan";
       final res = await dio.get(url);
       
       // Jika ada data absensi, berarti sudah absen
@@ -203,6 +238,8 @@ class _AbsenPagesState extends State<AbsenPages> {
 
 
 
+
+
   void filterSearch(String query) {
     final hasil = displayedCourses.where((item) {
       final nama = item["nama_matakuliah"].toString().toLowerCase();
@@ -215,23 +252,11 @@ class _AbsenPagesState extends State<AbsenPages> {
     });
   }
 
-  void _filterByDate() {
-    final dayName = DateFormat('EEEE', 'id_ID').format(selectedDate);
-    final dayMap = {
-      'Monday': 'Senin',
-      'Tuesday': 'Selasa',
-      'Wednesday': 'Rabu',
-      'Thursday': 'Kamis',
-      'Friday': 'Jumat',
-      'Saturday': 'Sabtu',
-      'Sunday': 'Minggu',
-    };
-    final indonesianDay = dayMap[dayName] ?? dayName;
-
-    // Filter jadwal berdasarkan hari
+  void _filterCourses() {
+    // Filter jadwal berdasarkan hari yang dipilih
     final filtered = allSchedules.where((item) {
       final itemDay = item['nama_hari']?.toString() ?? '';
-      return itemDay.toLowerCase() == indonesianDay.toLowerCase();
+      return itemDay.toLowerCase() == selectedDay.toLowerCase();
     }).toList();
 
     // Map status KRS ke jadwal yang ditampilkan
@@ -266,27 +291,7 @@ class _AbsenPagesState extends State<AbsenPages> {
     });
   }
 
-  void _changeDate(int days) {
-    setState(() {
-      selectedDate = selectedDate.add(Duration(days: days));
-      _filterByDate();
-    });
-  }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (picked != null) {
-      setState(() {
-        selectedDate = picked;
-        _filterByDate();
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -367,7 +372,7 @@ class _AbsenPagesState extends State<AbsenPages> {
                               });
                               Navigator.pop(context);
                               await _getKrsData();
-                              _filterByDate();
+                              _filterCourses();
                             },
                           )),
                         ],
@@ -413,7 +418,7 @@ class _AbsenPagesState extends State<AbsenPages> {
 
               const SizedBox(height: 15),
 
-              // Date Switcher
+              // Day and Meeting Selection
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -421,37 +426,87 @@ class _AbsenPagesState extends State<AbsenPages> {
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left, color: Colors.white),
-                      onPressed: () => _changeDate(-1),
-                    ),
-                    GestureDetector(
-                      onTap: _pickDate,
+                    // Day Dropdown
+                    Expanded(
+                      flex: 3,
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            DateFormat('EEEE', 'id_ID').format(selectedDate),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            DateFormat('dd MMMM yyyy', 'id_ID').format(selectedDate),
+                          const Text(
+                            "Hari",
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.grey,
                               fontSize: 12,
                             ),
+                          ),
+                          DropdownButton<String>(
+                            value: selectedDay,
+                            dropdownColor: const Color(0xff1C2A4D),
+                            isExpanded: true,
+                            underline: Container(),
+                            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            items: days.map((String day) {
+                              return DropdownMenuItem<String>(
+                                value: day,
+                                child: Text(day),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                setState(() {
+                                  selectedDay = newValue;
+                                  _filterCourses();
+                                });
+                              }
+                            },
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right, color: Colors.white),
-                      onPressed: () => _changeDate(1),
+                    
+                    const SizedBox(width: 16),
+                    
+                    // Meeting Dropdown
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Pertemuan",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                          DropdownButton<int>(
+                            value: selectedMeeting,
+                            dropdownColor: const Color(0xff1C2A4D),
+                            isExpanded: true,
+                            underline: Container(),
+                            icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            items: meetings.map((int meeting) {
+                              return DropdownMenuItem<int>(
+                                value: meeting,
+                                child: Text("Ke-$meeting"),
+                              );
+                            }).toList(),
+                            onChanged: (int? newValue) async {
+                              if (newValue != null) {
+                                setState(() {
+                                  selectedMeeting = newValue;
+                                });
+                                // Reload data to check attendance for new meeting number
+                                await _getKrsData();
+                                _filterCourses();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -585,6 +640,30 @@ class _AbsenPagesState extends State<AbsenPages> {
                                         fontSize: 12,
                                       ),
                                     ),
+                                    
+                                    // Meeting Number Indicator
+                                    if (item['meeting_number'] != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              "Pertemuan ke-${item['meeting_number']}",
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
 
                                     const SizedBox(height: 12),
 
@@ -629,7 +708,7 @@ class _AbsenPagesState extends State<AbsenPages> {
                                                   MaterialPageRoute(
                                                     builder: (context) => DetailAbsensiPage(
                                                       idKrsDetail: item['id_krs_detail'],
-                                                      pertemuan: 1,
+                                                      pertemuan: item['meeting_number'] ?? 1,
                                                       namaMatkul: item['nama_matakuliah'],
                                                     ),
                                                   ),
@@ -641,7 +720,7 @@ class _AbsenPagesState extends State<AbsenPages> {
                                                   MaterialPageRoute(
                                                     builder: (context) => AbsenSubmitPage(
                                                       idKrsDetail: item['id_krs_detail'],
-                                                      pertemuan: 1,
+                                                      pertemuan: item['meeting_number'] ?? 1,
                                                       namaMatkul: item['nama_matakuliah'],
                                                     ),
                                                   ),

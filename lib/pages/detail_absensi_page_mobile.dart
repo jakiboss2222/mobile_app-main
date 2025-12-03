@@ -33,7 +33,6 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
 
   Future<void> loadDetail() async {
     try {
-    try {
       final res = await ApiService.cekStatusAbsensi(
         idKrsDetail: widget.idKrsDetail,
         pertemuan: widget.pertemuan,

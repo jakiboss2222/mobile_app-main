@@ -532,38 +532,30 @@ class _AbsenPagesState extends State<AbsenPages> {
                                             ),
                                           ),
                                         ),
-                                        // VALIDASI STATUS ABSEN
+                                        // VALIDASI STATUS MATA KULIAH
                                         Container(
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
                                             color: item['is_taken'] == true
-                                                ? (item['sudah_absen'] == true
-                                                    ? Colors.green.withOpacity(0.1)
-                                                    : Colors.red.withOpacity(0.1))
+                                                ? Colors.green.withOpacity(0.1)
                                                 : Colors.grey.withOpacity(0.1),
                                             borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
                                               color: item['is_taken'] == true
-                                                  ? (item['sudah_absen'] == true
-                                                      ? Colors.green
-                                                      : Colors.red)
+                                                  ? Colors.green
                                                   : Colors.grey,
                                             ),
                                           ),
                                           child: Text(
                                             item['is_taken'] == true
-                                                ? (item['sudah_absen'] == true
-                                                    ? "Sudah Absen"
-                                                    : "Belum Absen")
-                                                : "Belum Diambil",
+                                                ? "Sudah Ambil"
+                                                : "Belum Ambil",
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
                                               color: item['is_taken'] == true
-                                                  ? (item['sudah_absen'] == true
-                                                      ? Colors.green
-                                                      : Colors.red)
+                                                  ? Colors.green
                                                   : Colors.grey,
                                             ),
                                           ),

@@ -19,12 +19,20 @@ class AbsenPages extends StatefulWidget {
 class _AbsenPagesState extends State<AbsenPages> {
   TextEditingController searchController = TextEditingController();
 
-  List<dynamic> daftarMatkul = [];
-  List<dynamic> filteredMatkul = [];
+  List<dynamic> allSchedules = []; // Semua jadwal dari API
+  List<dynamic> myKrsCourses = []; // Matkul yang diambil mahasiswa
+  List<dynamic> displayedCourses = []; // Matkul yang ditampilkan (filtered)
+  
+  // KRS Selection
+  List<dynamic> availableKrs = [];
+  int? selectedKrsId;
+  String selectedKrsLabel = "Pilih Semester";
+  
   bool isLoading = true;
   Map<String, dynamic>? user;
   int? currentIdKrs;
   DateTime selectedDate = DateTime.now();
+
 
   @override
   void initState() {
@@ -37,9 +45,96 @@ class _AbsenPagesState extends State<AbsenPages> {
     setState(() => isLoading = true);
     await _getMahasiswaData();
     if (user != null) {
-      await _getLatestKrsAndDetail();
-    } else {
-      setState(() => isLoading = false);
+      // Load KRS list first to get selectedKrsId
+      await _getAvailableKrs();
+      
+      // Then load schedules and KRS details
+      await Future.wait([
+        _getAllSchedules(),
+        _getKrsData(),
+      ]);
+      _filterByDate();
+    }
+    setState(() => isLoading = false);
+  }
+
+  Future<void> _getAvailableKrs() async {
+    try {
+      if (user == null || user!['nim'] == null) {
+        debugPrint('User data not loaded yet');
+        return;
+      }
+
+      final response = await ApiService.daftarKrs(idMahasiswa: user!['nim'].toString());
+      
+      if (response['data'] != null) {
+        final krsList = response['data'] as List;
+        
+        debugPrint('KRS loaded: ${krsList.length} items');
+        
+        setState(() {
+          availableKrs = krsList;
+          // Auto-select the first (latest) KRS if available and not already selected
+          if (krsList.isNotEmpty && selectedKrsId == null) {
+            selectedKrsId = krsList[0]['id'];
+            selectedKrsLabel = "${krsList[0]['tahun_ajaran']} - Semester ${krsList[0]['semester']}";
+          }
+        });
+      } else {
+        debugPrint('KRS response error: ${response['error'] ?? 'Unknown error'}');
+      }
+    } catch (e) {
+      debugPrint('Error loading KRS list: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memuat daftar semester: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _getAllSchedules() async {
+    try {
+      final res = await ApiService.daftarJadwal();
+      if (res['jadwals'] != null) {
+        setState(() {
+          allSchedules = res['jadwals'];
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading schedules: $e");
+    }
+  }
+
+  Future<void> _getKrsData() async {
+    if (selectedKrsId == null) {
+      setState(() => myKrsCourses = []);
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      Dio dio = Dio();
+      dio.options.headers['Authorization'] = 'Bearer $token';
+
+      // Get Detail KRS using ApiService
+      final response = await ApiService.detailKrs(idKrs: selectedKrsId!);
+      List<dynamic> tempMatkul = response['data'] ?? [];
+
+      // Cek status absensi
+      for (var mk in tempMatkul) {
+        mk['sudah_absen'] = await _cekStatusAbsensi(mk['id'], dio);
+      }
+
+      setState(() {
+        myKrsCourses = tempMatkul;
+      });
+    } catch (e) {
+      debugPrint("Error loading KRS details: $e");
     }
   }
 
@@ -67,80 +162,7 @@ class _AbsenPagesState extends State<AbsenPages> {
     }
   }
 
-  Future<void> _getLatestKrsAndDetail() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
 
-      Dio dio = Dio();
-      dio.options.headers['Authorization'] = 'Bearer $token';
-
-      // 1. Get List KRS
-      final responseKrs = await dio.get(
-        "${ApiService.baseUrl}krs/daftar-krs?id_mahasiswa=${user!['nim']}",
-      );
-
-      List<dynamic> listKrs = responseKrs.data['data'] ?? [];
-      
-      if (listKrs.isNotEmpty) {
-        final latestKrs = listKrs.last;
-        currentIdKrs = latestKrs['id'];
-
-        // 2. Get Detail KRS
-        await _getDetailKrs(currentIdKrs!);
-      } else {
-        setState(() {
-          daftarMatkul = [];
-          filteredMatkul = [];
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading KRS: $e");
-      setState(() => isLoading = false);
-    }
-  }
-
-  Future<void> _getDetailKrs(int idKrs) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    Dio dio = Dio();
-    dio.options.headers['Authorization'] = 'Bearer $token';
-
-    final url = "${ApiService.baseUrl}krs/detail-krs?id_krs=$idKrs";
-
-    try {
-      final res = await dio.get(url);
-
-      List<dynamic> tempMatkul = res.data['data'] ?? [];
-      
-      // Cek status absensi untuk setiap matkul
-      for (var mk in tempMatkul) {
-        mk['sudah_absen'] = await _cekStatusAbsensi(mk['id'], dio);
-      }
-      
-      if (mounted) {
-        setState(() {
-          daftarMatkul = tempMatkul;
-          filteredMatkul = tempMatkul;
-          isLoading = false;
-        });
-        _filterByDate();
-      }
-    } catch (e) {
-      debugPrint("Error loading detail KRS: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Gagal memuat detail KRS"),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => isLoading = false);
-      }
-    }
-  }
 
   // Method untuk cek apakah sudah absen
   Future<bool> _cekStatusAbsensi(int idKrsDetail, Dio dio) async {
@@ -179,15 +201,17 @@ class _AbsenPagesState extends State<AbsenPages> {
     }
   }
 
+
+
   void filterSearch(String query) {
-    final hasil = daftarMatkul.where((item) {
+    final hasil = displayedCourses.where((item) {
       final nama = item["nama_matakuliah"].toString().toLowerCase();
       final input = query.toLowerCase();
       return nama.contains(input);
     }).toList();
 
     setState(() {
-      filteredMatkul = hasil;
+      displayedCourses = hasil;
     });
   }
 
@@ -204,13 +228,41 @@ class _AbsenPagesState extends State<AbsenPages> {
     };
     final indonesianDay = dayMap[dayName] ?? dayName;
 
-    final filtered = daftarMatkul.where((item) {
+    // Filter jadwal berdasarkan hari
+    final filtered = allSchedules.where((item) {
       final itemDay = item['nama_hari']?.toString() ?? '';
       return itemDay.toLowerCase() == indonesianDay.toLowerCase();
     }).toList();
 
+    // Map status KRS ke jadwal yang ditampilkan
+    final mappedCourses = filtered.map((schedule) {
+      // Cari apakah matkul ini ada di KRS user
+      // Kita cocokkan berdasarkan nama_matakuliah dan hari/jam jika perlu
+      // Atau idealnya ID jadwal jika ada relasinya.
+      // Asumsi: Kita cocokkan nama matakuliah
+      final krsMatch = myKrsCourses.firstWhere(
+        (krs) => krs['nama_matakuliah'] == schedule['nama_matakuliah'],
+        orElse: () => null,
+      );
+
+      if (krsMatch != null) {
+        return {
+          ...schedule,
+          'is_taken': true,
+          'id_krs_detail': krsMatch['id'], // ID untuk absen
+          'sudah_absen': krsMatch['sudah_absen'],
+          'zoom_link': krsMatch['zoom_link'], // Ambil zoom link dari KRS jika ada
+        };
+      } else {
+        return {
+          ...schedule,
+          'is_taken': false,
+        };
+      }
+    }).toList();
+
     setState(() {
-      filteredMatkul = filtered;
+      displayedCourses = mappedCourses;
     });
   }
 
@@ -259,6 +311,102 @@ class _AbsenPagesState extends State<AbsenPages> {
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              // KRS/Semester Selector
+              GestureDetector(
+                onTap: () {
+                  debugPrint('KRS selector tapped. Available KRS: ${availableKrs.length}');
+                  
+                  if (availableKrs.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Tidak ada data semester. Silakan coba reload halaman.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    return;
+                  }
+                  
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: const Color(0xff1C2A4D),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (context) => Container(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Pilih Semester',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ...availableKrs.map((krs) => ListTile(
+                            title: Text(
+                              "${krs['tahun_ajaran']} - Semester ${krs['semester']}",
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            trailing: selectedKrsId == krs['id']
+                                ? const Icon(Icons.check, color: Colors.green)
+                                : null,
+                            onTap: () async {
+                              setState(() {
+                                selectedKrsId = krs['id'];
+                                selectedKrsLabel = "${krs['tahun_ajaran']} - Semester ${krs['semester']}";
+                              });
+                              Navigator.pop(context);
+                              await _getKrsData();
+                              _filterByDate();
+                            },
+                          )),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: availableKrs.isEmpty 
+                          ? Colors.orange.withOpacity(0.5)
+                          : Colors.transparent,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Icon(Icons.school, color: Colors.white),
+                      Expanded(
+                        child: Text(
+                          availableKrs.isEmpty ? 'Loading...' : selectedKrsLabel,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        availableKrs.isEmpty ? Icons.warning : Icons.arrow_drop_down,
+                        color: availableKrs.isEmpty ? Colors.orange : Colors.white,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -345,7 +493,7 @@ class _AbsenPagesState extends State<AbsenPages> {
                           color: Colors.white,
                         ),
                       )
-                    : filteredMatkul.isEmpty
+                    : displayedCourses.isEmpty
                         ? const Center(
                             child: Text(
                               "Belum ada matakuliah",
@@ -354,9 +502,9 @@ class _AbsenPagesState extends State<AbsenPages> {
                           )
                         : ListView.builder(
                             padding: EdgeInsets.zero,
-                            itemCount: filteredMatkul.length,
+                            itemCount: displayedCourses.length,
                             itemBuilder: (context, index) {
-                              final item = filteredMatkul[index];
+                              final item = displayedCourses[index];
                               
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
@@ -394,26 +542,34 @@ class _AbsenPagesState extends State<AbsenPages> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: item['sudah_absen'] == true
-                                                ? Colors.green.withOpacity(0.1)
-                                                : Colors.red.withOpacity(0.1),
+                                            color: item['is_taken'] == true
+                                                ? (item['sudah_absen'] == true
+                                                    ? Colors.green.withOpacity(0.1)
+                                                    : Colors.red.withOpacity(0.1))
+                                                : Colors.grey.withOpacity(0.1),
                                             borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
-                                              color: item['sudah_absen'] == true
-                                                  ? Colors.green
-                                                  : Colors.red,
+                                              color: item['is_taken'] == true
+                                                  ? (item['sudah_absen'] == true
+                                                      ? Colors.green
+                                                      : Colors.red)
+                                                  : Colors.grey,
                                             ),
                                           ),
                                           child: Text(
-                                            item['sudah_absen'] == true
-                                                ? "Sudah Absen"
-                                                : "Belum Absen",
+                                            item['is_taken'] == true
+                                                ? (item['sudah_absen'] == true
+                                                    ? "Sudah Absen"
+                                                    : "Belum Absen")
+                                                : "Belum Diambil",
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
-                                              color: item['sudah_absen'] == true
-                                                  ? Colors.green
-                                                  : Colors.red,
+                                              color: item['is_taken'] == true
+                                                  ? (item['sudah_absen'] == true
+                                                      ? Colors.green
+                                                      : Colors.red)
+                                                  : Colors.grey,
                                             ),
                                           ),
                                         ),
@@ -432,61 +588,71 @@ class _AbsenPagesState extends State<AbsenPages> {
 
                                     const SizedBox(height: 12),
 
-                                    // Action Buttons
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        // Camera Button (Zoom)
-                                        _buildActionButton(
-                                          icon: Icons.video_camera_front,
-                                          color: const Color(0xff5A6C7D),
-                                          onTap: () => _openZoom(item['zoom_link']),
-                                        ),
-                                        const SizedBox(width: 10),
-
-                                        // Absen Button
-                                        if (item['sudah_absen'] == true)
+                                      // Action Buttons - Show for ALL courses
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          // Camera Button (Zoom) - Only if zoom link exists
+                                          if (item['zoom_link'] != null && item['zoom_link'].toString().isNotEmpty)
+                                            _buildActionButton(
+                                              icon: Icons.video_camera_front,
+                                              color: const Color(0xff5A6C7D),
+                                              onTap: () => _openZoom(item['zoom_link']),
+                                            ),
+                                          if (item['zoom_link'] != null && item['zoom_link'].toString().isNotEmpty)
+                                            const SizedBox(width: 10),
+                                          // Absen Button - Show details if already submitted, or submit form if not
                                           _buildActionButton(
-                                            icon: Icons.assignment_turned_in,
-                                            color: const Color(0xff4A90E2),
+                                            icon: item['sudah_absen'] == true
+                                                ? Icons.assignment_turned_in
+                                                : Icons.check_circle,
+                                            color: item['sudah_absen'] == true
+                                                ? const Color(0xff4A90E2)
+                                                : Colors.green,
                                             onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      DetailAbsensiPage(
-                                                    idKrsDetail: item['id'],
-                                                    pertemuan: 1,
-                                                    namaMatkul: item['nama_matakuliah'],
+                                              // Only allow if enrolled in KRS
+                                              if (item['is_taken'] != true || item['id_krs_detail'] == null) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Pilih semester yang sesuai dengan mata kuliah yang ingin diabsen'),
+                                                    backgroundColor: Colors.orange,
                                                   ),
-                                                ),
-                                              );
-                                            },
-                                          )
-                                        else
-                                          _buildActionButton(
-                                            icon: Icons.check_circle,
-                                            color: Colors.green,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      AbsenSubmitPage(
-                                                    idKrsDetail: item['id'],
-                                                    pertemuan: 1,
-                                                    namaMatkul: item['nama_matakuliah'],
+                                                );
+                                                return;
+                                              }
+                                              
+                                              // Check if already submitted
+                                              if (item['sudah_absen'] == true) {
+                                                // Show attendance details
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => DetailAbsensiPage(
+                                                      idKrsDetail: item['id_krs_detail'],
+                                                      pertemuan: 1,
+                                                      namaMatkul: item['nama_matakuliah'],
+                                                    ),
                                                   ),
-                                                ),
-                                              ).then((_) {
-                                                if (currentIdKrs != null) {
-                                                  _getDetailKrs(currentIdKrs!);
-                                                }
-                                              });
+                                                );
+                                              } else {
+                                                // Navigate to submit page
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => AbsenSubmitPage(
+                                                      idKrsDetail: item['id_krs_detail'],
+                                                      pertemuan: 1,
+                                                      namaMatkul: item['nama_matakuliah'],
+                                                    ),
+                                                  ),
+                                                ).then((_) {
+                                                  _loadInitialData();
+                                                });
+                                              }
                                             },
                                           ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
                                   ],
                                 ),
                               );

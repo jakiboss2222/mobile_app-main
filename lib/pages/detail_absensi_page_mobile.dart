@@ -33,17 +33,18 @@ class _DetailAbsensiPageState extends State<DetailAbsensiPage> {
 
   Future<void> loadDetail() async {
     try {
-      Dio dio = Dio();
+    try {
+      final res = await ApiService.cekStatusAbsensi(
+        idKrsDetail: widget.idKrsDetail,
+        pertemuan: widget.pertemuan,
+      );
 
-      final url =
-          "${ApiService.baseUrl}absensi/detail?id_krs_detail=${widget.idKrsDetail}&pertemuan=${widget.pertemuan}";
-
-      final res = await dio.get(url);
-
-      setState(() {
-        data = res.data["data"];
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          data = res["data"];
+          isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() => isLoading = false);
       ScaffoldMessenger.of(

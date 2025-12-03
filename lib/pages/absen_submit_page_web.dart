@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 
 // Map import
@@ -272,35 +273,62 @@ class _AbsenSubmitPageState extends State<AbsenSubmitPage> {
     setState(() => isSubmitting = true);
 
     try {
-      Dio dio = Dio();
-
-      final form = FormData.fromMap({
-        "id_krs_detail": widget.idKrsDetail,
-        "pertemuan": widget.pertemuan,
-        "latitude": position!.latitude,
-        "longitude": position!.longitude,
-        "foto": MultipartFile.fromBytes(
-          imageBytes!,
-          filename: "absen_${DateTime.now().millisecondsSinceEpoch}.png",
-        ),
-      });
-
-      final res =
-          await dio.post("${ApiService.baseUrl}absensi/submit", data: form);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.data["message"] ?? "Absen berhasil"),
-          backgroundColor: Colors.green,
-        ),
+      final res = await ApiService.submitAbsensi(
+        idKrsDetail: widget.idKrsDetail,
+        pertemuan: widget.pertemuan,
+        latitude: position!.latitude,
+        longitude: position!.longitude,
+        foto: imageBytes!,
       );
 
-      Navigator.pop(context);
+      // Check if there's an error field
+      if (res.containsKey('error')) {
+        throw Exception(res['error']);
+      }
+
+      // Check response status - be more flexible with validation
+      bool isSuccess = false;
+      
+      // Check status codes
+      if (res['status'] == 200 || res['code'] == 200) {
+        isSuccess = true;
+      }
+      
+      // Check message content for success indicators
+      String? message = res['message']?.toString().toLowerCase();
+      if (message != null && (message.contains('berhasil') || message.contains('sukses') || message.contains('success'))) {
+        isSuccess = true;
+      }
+      
+      // If data field exists and not empty, it's likely success
+      if (res['data'] != null) {
+        isSuccess = true;
+      }
+
+      if (isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res["message"] ?? "Absen berhasil disimpan"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        // Show error from server
+        throw Exception(res['message'] ?? 'Submit gagal');
+      }
     } catch (e) {
+      // Show detailed error message
+      String errorMsg = e.toString();
+      if (errorMsg.startsWith('Exception: ')) {
+        errorMsg = errorMsg.substring(11);
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Gagal submit absen: $e"),
+          content: Text("Gagal submit absen: $errorMsg"),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {

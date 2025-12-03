@@ -53,11 +53,53 @@ class _AbsenPageState extends State<AbsenPage> {
     super.dispose();
   }
 
+  // ================= LOCAL STORAGE HELPERS =================
+  
+  /// Save attendance record to local storage
+  Future<void> _saveLocalAttendance(int pertemuan) async {
+    final prefs = await SharedPreferences.getInstance();
+    String key = 'attended_${widget.idKrsDetail}_$pertemuan';
+    await prefs.setBool(key, true);
+    await prefs.setString('${key}_time', DateTime.now().toIso8601String());
+  }
+  
+  /// Check if pertemuan has been attended (from local storage)
+  Future<bool> _isLocallyAttended(int pertemuan) async {
+    final prefs = await SharedPreferences.getInstance();
+    String key = 'attended_${widget.idKrsDetail}_$pertemuan';
+    return prefs.getBool(key) ?? false;
+  }
+  
+  /// Get all locally attended pertemuans for this course
+  Future<Set<int>> _getLocalAttendedPertemuans() async {
+    final prefs = await SharedPreferences.getInstance();
+    Set<int> attended = {};
+    
+    for (int i = 1; i <= 16; i++) {
+      String key = 'attended_${widget.idKrsDetail}_$i';
+      if (prefs.getBool(key) == true) {
+        attended.add(i);
+      }
+    }
+    
+    return attended;
+  }
+  
+  /// Clear all local attendance for this course (optional, for testing)
+  Future<void> _clearLocalAttendance() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (int i = 1; i <= 16; i++) {
+      String key = 'attended_${widget.idKrsDetail}_$i';
+      await prefs.remove(key);
+      await prefs.remove('${key}_time');
+    }
+  }
+
   Future<void> loadStatusAbsen() async {
     setState(() => isLoading = true);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('token');
+      String? token = prefs.getString('auth_token');
 
       if (token == null) {
         throw Exception("Token tidak ditemukan");
@@ -76,13 +118,64 @@ class _AbsenPageState extends State<AbsenPage> {
               'pertemuan': i,
             },
           );
-          if (response.statusCode == 200 && response.data['data'] != null) {
+          
+          // Debug: Print response to see what API returns
+          print('=== PERTEMUAN $i ===');
+          print('Status Code: ${response.statusCode}');
+          print('Response: ${response.data}');
+          
+          // More robust checking:
+          // 1. Check if status code is 200
+          // 2. Check if response has 'data' field
+          // 3. Check if data is not null and not empty
+          // 4. Check if data has required fields like 'foto', 'latitude', 'pertemuan'
+          bool hasValidData = false;
+          
+          if (response.statusCode == 200 && response.data != null) {
+            var data = response.data['data'];
+            
+            // Check if data exists and has key fields
+            if (data != null && data is Map) {
+              // Check if it has attendance-specific fields
+              // If pertemuan field exists and matches, it's likely valid
+              if (data.containsKey('pertemuan') && 
+                  data['pertemuan'] == i &&
+                  data.containsKey('foto')) {
+                hasValidData = true;
+                print('✅ Pertemuan $i: SUDAH ABSEN (foto: ${data['foto'] != null})');
+              } else {
+                print('⚠️ Pertemuan $i: Data ada tapi tidak valid atau pertemuan tidak match');
+                print('   Data pertemuan: ${data['pertemuan']}, Expected: $i');
+              }
+            }
+          }
+          
+          if (hasValidData) {
             tempStatus.add(response.data['data']);
           } else {
             tempStatus.add(null);
+            print('❌ Pertemuan $i: BELUM ABSEN');
           }
         } catch (e) {
+          print('⚠️ Pertemuan $i: ERROR - $e');
           tempStatus.add(null);
+        }
+      }
+
+      // After API check, also check local storage
+      // Combine API results with local tracking
+      Set<int> localAttended = await _getLocalAttendedPertemuans();
+      
+      for (int i = 0; i < 16; i++) {
+        int pertemuan = i + 1;
+        // If locally attended but API didn't return data, add placeholder
+        if (localAttended.contains(pertemuan) && tempStatus[i] == null) {
+          tempStatus[i] = {
+            'pertemuan': pertemuan,
+            'waktu_absen': 'Local Record',
+            'is_local': true, // Flag to indicate this is from local storage
+          };
+          print('📝 Pertemuan $pertemuan: Added from local storage');
         }
       }
 
@@ -105,6 +198,22 @@ class _AbsenPageState extends State<AbsenPage> {
   // ================= SUBMISSION LOGIC =================
 
   Future<void> _startSubmission(int pertemuan) async {
+    // Check local storage for attendance (workaround for API bug)
+    bool isAttended = await _isLocallyAttended(pertemuan);
+    
+    if (isAttended) {
+      // Already attended according to local records
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Pertemuan $pertemuan sudah diabsen sebelumnya."),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return; // Don't allow resubmission
+    }
+    
+    // Proceed with submission
     setState(() {
       selectedPertemuan = pertemuan;
       isSubmittingView = true;
@@ -337,7 +446,17 @@ class _AbsenPageState extends State<AbsenPage> {
     setState(() => isSubmitting = true);
 
     try {
+      // Get authorization token
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('auth_token');
+      
+      if (token == null) {
+        throw Exception("Token tidak ditemukan");
+      }
+      
       Dio dio = Dio();
+      dio.options.headers['Authorization'] = 'Bearer $token';
+      dio.options.validateStatus = (status) => status! < 500; // Don't throw on 4xx
 
       final form = FormData.fromMap({
         "id_krs_detail": widget.idKrsDetail,
@@ -351,27 +470,49 @@ class _AbsenPageState extends State<AbsenPage> {
       });
 
       final res =
-          await dio.post("${ApiService.baseUrl}absensi/submit", data: form);
+```
+      await dio.post("${ApiService.baseUrl}absensi/submit", data: form);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.data["message"] ?? "Absen berhasil"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Return to list and reload
-        setState(() {
-          isSubmittingView = false;
-          isSubmitting = false;
-        });
-        loadStatusAbsen();
+        // Check response status
+        if (res.statusCode == 200 && res.data['status'] == 200) {
+          // Save to local storage for tracking
+          await _saveLocalAttendance(selectedPertemuan!);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res.data["message"] ?? "Absen berhasil"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Return to list and reload
+          setState(() {
+            isSubmittingView = false;
+            isSubmitting = false;
+          });
+          loadStatusAbsen();
+        } else {
+          // Show error from server
+          String errorMsg = res.data['message'] ?? 'Submit gagal: ${res.statusCode}';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Gagal submit absen: $errorMsg"),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          setState(() => isSubmitting = false);
+        }
       }
     } catch (e) {
       if (mounted) {
+        String errorMsg = e.toString();
+        if (errorMsg.startsWith('Exception: ')) {
+          errorMsg = errorMsg.substring(11);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Gagal submit absen: $e"),
+            content: Text("Gagal submit absen: $errorMsg"),
             backgroundColor: Colors.red,
           ),
         );

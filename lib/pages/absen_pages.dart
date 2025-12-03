@@ -8,6 +8,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../api/api_service.dart';
 import './absen_submit_page.dart';
 import './detail_absensi_page.dart';
+import './kehadiran_detail_page.dart';
 
 class AbsenPages extends StatefulWidget {
   const AbsenPages({super.key});
@@ -680,6 +681,35 @@ class _AbsenPagesState extends State<AbsenPages> {
                                             ),
                                           if (item['zoom_link'] != null && item['zoom_link'].toString().isNotEmpty)
                                             const SizedBox(width: 10),
+
+                                          // History Button (Riwayat)
+                                          _buildActionButton(
+                                            icon: Icons.history,
+                                            color: const Color(0xffE67E22), // Orange
+                                            onTap: () {
+                                              if (item['is_taken'] != true || item['id_krs_detail'] == null) {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Pilih semester yang sesuai terlebih dahulu'),
+                                                    backgroundColor: Colors.orange,
+                                                  ),
+                                                );
+                                                return;
+                                              }
+                                              
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => KehadiranDetailPage(
+                                                    idKrsDetail: item['id_krs_detail'],
+                                                    namaMatkul: item['nama_matakuliah'],
+                                                    dosenName: item['nama_dosen'],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(width: 10),
                                           // Absen Button - Show details if already submitted, or submit form if not
                                           _buildActionButton(
                                             icon: item['sudah_absen'] == true

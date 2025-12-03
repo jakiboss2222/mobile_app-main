@@ -268,42 +268,63 @@ class _AbsenSubmitPageState extends State<AbsenSubmitPage> {
     setState(() => isSubmitting = true);
 
     try {
-      // Get authorization token
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('auth_token');
-      
-      Dio dio = Dio();
-      if (token != null) {
-        dio.options.headers['Authorization'] = 'Bearer $token';
-      }
-
-      final form = FormData.fromMap({
-        "id_krs_detail": widget.idKrsDetail,
-        "pertemuan": currentPertemuan, // Use current (possibly overridden) value
-        "latitude": position!.latitude,
-        "longitude": position!.longitude,
-        "foto": MultipartFile.fromBytes(
-          imageBytes!,
-          filename: "absen_${DateTime.now().millisecondsSinceEpoch}.png",
-        ),
-      });
-
-      final res =
-          await dio.post("${ApiService.baseUrl}absensi/submit", data: form);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.data["message"] ?? "Absen berhasil"),
-          backgroundColor: Colors.green,
-        ),
+      final res = await ApiService.submitAbsensi(
+        idKrsDetail: widget.idKrsDetail,
+        pertemuan: currentPertemuan,
+        latitude: position!.latitude,
+        longitude: position!.longitude,
+        foto: imageBytes!,
       );
 
-      Navigator.pop(context);
+      // Check if there's an error field
+      if (res.containsKey('error')) {
+        throw Exception(res['error']);
+      }
+
+      // Check response status - be more flexible with validation
+      // API might return various structures, so we check multiple conditions
+      bool isSuccess = false;
+      
+      // Check status codes
+      if (res['status'] == 200 || res['code'] == 200) {
+        isSuccess = true;
+      }
+      
+      // Check message content for success indicators
+      String? message = res['message']?.toString().toLowerCase();
+      if (message != null && (message.contains('berhasil') || message.contains('sukses') || message.contains('success'))) {
+        isSuccess = true;
+      }
+      
+      // If data field exists and not empty, it's likely success
+      if (res['data'] != null) {
+        isSuccess = true;
+      }
+
+      if (isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res["message"] ?? "Absen berhasil disimpan"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        // Show error from server
+        throw Exception(res['message'] ?? 'Submit gagal');
+      }
     } catch (e) {
+      // Show detailed error message
+      String errorMsg = e.toString();
+      if (errorMsg.startsWith('Exception: ')) {
+        errorMsg = errorMsg.substring(11);
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Gagal submit absen: $e"),
+          content: Text("Gagal submit absen: $errorMsg"),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {

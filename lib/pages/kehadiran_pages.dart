@@ -77,10 +77,16 @@ class _KehadiranPagesState extends State<KehadiranPages> {
   }
 
   void navigateToDetail(Map<String, dynamic> course) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => KehadiranDetailPage(courseData: course),
+    // Karena halaman ini hanya menampilkan jadwal umum tanpa relasi KRS,
+    // kita tidak bisa langsung ke detail attendance.
+    // User harus melalui halaman Absen yang sudah terintegrasi dengan KRS.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Silakan akses fitur Absensi melalui menu Absen untuk melihat riwayat kehadiran ${course['nama_matakuliah']}',
+        ),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 3),
       ),
     );
   }

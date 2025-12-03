@@ -174,4 +174,63 @@ class ApiService {
       return {'error': e.toString()};
     }
   }
+
+  // ABSENSI: cek status (GET)
+  static Future<Map<String, dynamic>> cekStatusAbsensi({
+    required int idKrsDetail,
+    required int pertemuan,
+  }) async {
+    try {
+      final headers = await _authHeader();
+      final response = await Dio().get(
+        "${baseUrl}absensi/detail",
+        queryParameters: {
+          'id_krs_detail': idKrsDetail,
+          'pertemuan': pertemuan,
+        },
+        options: Options(headers: headers),
+      );
+      return response.data ?? {'status': response.statusCode};
+    } catch (e) {
+      // Return empty or specific error structure that caller can handle
+      // If 404/null data, it usually means not present.
+      return {'error': e.toString()};
+    }
+  }
+
+  // ABSENSI: submit (POST)
+  static Future<Map<String, dynamic>> submitAbsensi({
+    required int idKrsDetail,
+    required int pertemuan,
+    required double latitude,
+    required double longitude,
+    required dynamic foto, // Uint8List or File path depending on platform, but here we expect bytes usually
+    String? filename,
+  }) async {
+    try {
+      final headers = await _authHeader();
+      
+      // Prepare FormData
+      // Note: If foto is Uint8List
+      final formData = FormData.fromMap({
+        "id_krs_detail": idKrsDetail,
+        "pertemuan": pertemuan,
+        "latitude": latitude,
+        "longitude": longitude,
+        "foto": MultipartFile.fromBytes(
+          foto,
+          filename: filename ?? "absen_${DateTime.now().millisecondsSinceEpoch}.png",
+        ),
+      });
+
+      final response = await Dio().post(
+        "${baseUrl}absensi/submit",
+        data: formData,
+        options: Options(headers: headers, validateStatus: (status) => status! < 500),
+      );
+      return response.data ?? {'status': response.statusCode};
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
 }

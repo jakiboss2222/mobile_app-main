@@ -34,35 +34,83 @@ class _ProfilePagesState extends State<ProfilePages> {
   }
 
   Future<void> _getMahasiswaData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    final email = prefs.getString('auth_email');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final email = prefs.getString('auth_email');
 
-    Dio dio = Dio();
-    dio.options.headers['Authorization'] = 'Bearer $token';
+      Dio dio = Dio();
+      dio.options.headers['Authorization'] = 'Bearer $token';
 
-    final response = await dio.post(
-      "${ApiService.baseUrl}mahasiswa/detail-mahasiswa",
-      data: {"email": email},
-    );
+      final response = await dio.post(
+        "${ApiService.baseUrl}mahasiswa/detail-mahasiswa",
+        data: {"email": email},
+      );
 
-    setState(() {
-      user = response.data['data'];
-      namaC.text = user?['nama'] ?? '';
-      jkC.text = user?['jenis_kelamin'] ?? '';
-      tglC.text = user?['tanggal_lahir'] ?? '';
-      alamatC.text = user?['alamat'] ?? '';
-      statusC.text = user?['status'] ?? '';
-    });
+      if (mounted) {
+        setState(() {
+          user = response.data['data'];
+          namaC.text = user?['nama'] ?? '';
+          jkC.text = user?['jenis_kelamin'] ?? '';
+          tglC.text = user?['tanggal_lahir'] ?? '';
+          alamatC.text = user?['alamat'] ?? '';
+          statusC.text = user?['status'] ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading mahasiswa data: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Gagal memuat data profil"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery);
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
 
     if (image != null) {
+      // Validate file size (max 5MB)
+      final bytes = await image.readAsBytes();
+      final sizeInMB = bytes.length / (1024 * 1024);
+      
+      if (sizeInMB > 5) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Ukuran foto terlalu besar! Maksimal 5MB"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Validate file type
+      final extension = image.name.toLowerCase().split('.').last;
+      if (!['jpg', 'jpeg', 'png'].contains(extension)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Format foto harus JPG, JPEG, atau PNG"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       if (kIsWeb) {
-        final bytes = await image.readAsBytes();
         setState(() {
           webImage = bytes;
           pickedFile = image;
@@ -85,8 +133,13 @@ class _ProfilePagesState extends State<ProfilePages> {
       final token = prefs.getString('auth_token');
       final nim = user?['nim'];
 
+      if (nim == null) {
+        throw Exception("NIM tidak ditemukan");
+      }
+
       Dio dio = Dio();
       dio.options.headers['Authorization'] = 'Bearer $token';
+      dio.options.validateStatus = (status) => status! < 500; // Don't throw on 4xx
 
       final formData = FormData.fromMap({
         'nim': nim,
@@ -98,17 +151,38 @@ class _ProfilePagesState extends State<ProfilePages> {
         data: formData,
       );
 
-      if (response.data['status'] == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Foto profil berhasil diperbarui!")),
-        );
-        _getMahasiswaData();
+      if (mounted) {
+        if (response.statusCode == 200 && response.data['status'] == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Foto profil berhasil diperbarui!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          await _getMahasiswaData();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Gagal upload foto: ${response.data['message'] ?? 'Server error'}"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Gagal upload foto: $e")));
+      debugPrint("Error upload foto: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Gagal upload foto: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -120,8 +194,13 @@ class _ProfilePagesState extends State<ProfilePages> {
       final token = prefs.getString('auth_token');
       final nim = user?['nim'];
 
+      if (nim == null) {
+        throw Exception("NIM tidak ditemukan");
+      }
+
       Dio dio = Dio();
       dio.options.headers['Authorization'] = 'Bearer $token';
+      dio.options.validateStatus = (status) => status! < 500; // Don't throw on 4xx
 
       final formData = FormData.fromMap({
         'nim': nim,
@@ -133,17 +212,38 @@ class _ProfilePagesState extends State<ProfilePages> {
         data: formData,
       );
 
-      if (response.data['status'] == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Foto profil berhasil diperbarui!")),
-        );
-        _getMahasiswaData();
+      if (mounted) {
+        if (response.statusCode == 200 && response.data['status'] == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Foto profil berhasil diperbarui!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          await _getMahasiswaData();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Gagal upload foto: ${response.data['message'] ?? 'Server error'}"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Gagal upload foto: $e")));
+      debugPrint("Error upload foto: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Gagal upload foto: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 

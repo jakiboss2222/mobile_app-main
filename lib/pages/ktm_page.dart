@@ -64,42 +64,30 @@ class _KtmPageState extends State<KtmPage> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: CustomScrollView(
-        slivers: [
-          // App Bar
-          SliverAppBar(
-            backgroundColor: const Color(0xFF3B5998),
-            foregroundColor: Colors.white,
-            pinned: true,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            title: const Text(
-              "Lihat Kartu Tanda Mahasiswa",
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 18,
-              ),
-            ),
-            centerTitle: false,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF3B5998),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          "Lihat Kartu Tanda Mahasiswa",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
           ),
-
-          // Content
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: _buildContent(),
-              ),
-            ),
-          ),
-        ],
+        ),
+        centerTitle: false,
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: _buildContent(),
+        ),
       ),
     );
   }
@@ -165,10 +153,21 @@ class _KtmPageState extends State<KtmPage> {
     final jurusan = mahasiswaData?['jurusan'] ?? 'N/A';
     final fotoUrl = mahasiswaData?['foto'];
 
+    // Get screen width to adjust layout for mobile
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    
+    // Responsive sizes
+    final headerHeight = isSmallScreen ? 70.0 : 80.0;
+    final logoSize = isSmallScreen ? 48.0 : 56.0;
+    final photoWidth = isSmallScreen ? 90.0 : 120.0;
+    final photoHeight = isSmallScreen ? 110.0 : 150.0;
+    final barcodeHeight = isSmallScreen ? 40.0 : 50.0;
+    final barcodeWidth = isSmallScreen ? 140.0 : 180.0;
+
     return Container(
-      constraints: const BoxConstraints(
+      constraints: BoxConstraints(
         maxWidth: 600,
-        maxHeight: 380,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -185,10 +184,11 @@ class _KtmPageState extends State<KtmPage> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Header with gradient
             Container(
-              height: 80,
+              height: headerHeight,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
@@ -203,10 +203,10 @@ class _KtmPageState extends State<KtmPage> {
                 children: [
                   // Logo
                   Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: EdgeInsets.all(isSmallScreen ? 8.0 : 12.0),
                     child: Container(
-                      width: 56,
-                      height: 56,
+                      width: logoSize,
+                      height: logoSize,
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -223,34 +223,34 @@ class _KtmPageState extends State<KtmPage> {
                   // Text
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(right: 12.0),
+                      padding: EdgeInsets.only(right: isSmallScreen ? 8.0 : 12.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
+                          Text(
                             "Kartu Tanda Mahasiswa",
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 13,
+                              fontSize: isSmallScreen ? 11 : 13,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 2),
-                          const Text(
+                          Text(
                             "STMIK Widya Utama Purwokerto",
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 12,
+                              fontSize: isSmallScreen ? 10 : 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
-                          const Text(
+                          Text(
                             "Jl. Sunan Kalijaga, Dusun III, Berkoh, Kec. Purwokerto Sel., Kabupaten Banyumas, Jawa Tengah 53146",
                             style: TextStyle(
                               color: Colors.white70,
-                              fontSize: 9,
+                              fontSize: isSmallScreen ? 7 : 9,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -264,82 +264,82 @@ class _KtmPageState extends State<KtmPage> {
             ),
             
             // Body with info and photo
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left side - Info and Barcode
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Info fields
-                          _buildInfoRow("Nama", nama),
-                          const SizedBox(height: 8),
-                          _buildInfoRow("NIM", nim),
-                          const SizedBox(height: 8),
-                          _buildInfoRow(
-                            "Tempat. Tanggal Lahir",
-                            "$tempatLahir, $tanggalLahir",
-                          ),
-                          const SizedBox(height: 8),
-                          _buildInfoRow("Jurusan", jurusan),
-                          
-                          const Spacer(),
-                          
-                          // Barcode
-                          Container(
-                            height: 50,
-                            width: 180,
-                            child: BarcodeWidget(
-                              barcode: Barcode.code128(),
-                              data: nim,
-                              drawText: false,
-                              color: Colors.black,
-                              backgroundColor: Colors.transparent,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(width: 16),
-                    
-                    // Right side - Photo
-                    Container(
-                      width: 120,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                          width: 2,
+            Padding(
+              padding: EdgeInsets.all(isSmallScreen ? 12.0 : 20.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left side - Info and Barcode
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Info fields
+                        _buildInfoRow("Nama", nama, isSmallScreen),
+                        SizedBox(height: isSmallScreen ? 6 : 8),
+                        _buildInfoRow("NIM", nim, isSmallScreen),
+                        SizedBox(height: isSmallScreen ? 6 : 8),
+                        _buildInfoRow(
+                          "Tempat. Tanggal Lahir",
+                          "$tempatLahir, $tanggalLahir",
+                          isSmallScreen,
                         ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: (fotoUrl != null && fotoUrl.toString().isNotEmpty)
-                            ? Image.network(
-                                fotoUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Image.asset(
-                                    'assets/images/profile_photo.jpg',
-                                    fit: BoxFit.cover,
-                                  );
-                                },
-                              )
-                            : Image.asset(
-                                'assets/images/profile_photo.jpg',
-                                fit: BoxFit.cover,
-                              ),
+                        SizedBox(height: isSmallScreen ? 6 : 8),
+                        _buildInfoRow("Jurusan", jurusan, isSmallScreen),
+                        
+                        SizedBox(height: isSmallScreen ? 12 : 16),
+                        
+                        // Barcode
+                        Container(
+                          height: barcodeHeight,
+                          width: barcodeWidth,
+                          child: BarcodeWidget(
+                            barcode: Barcode.code128(),
+                            data: nim,
+                            drawText: false,
+                            color: Colors.black,
+                            backgroundColor: Colors.transparent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  SizedBox(width: isSmallScreen ? 8 : 16),
+                  
+                  // Right side - Photo
+                  Container(
+                    width: photoWidth,
+                    height: photoHeight,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                        width: 2,
                       ),
                     ),
-                  ],
-                ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: (fotoUrl != null && fotoUrl.toString().isNotEmpty)
+                          ? Image.network(
+                              fotoUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Image.asset(
+                                  'assets/images/profile_photo.jpg',
+                                  fit: BoxFit.cover,
+                                );
+                              },
+                            )
+                          : Image.asset(
+                              'assets/images/profile_photo.jpg',
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -348,33 +348,33 @@ class _KtmPageState extends State<KtmPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, [bool isSmallScreen = false]) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 140,
+          width: isSmallScreen ? 110 : 140,
           child: Text(
             label,
-            style: const TextStyle(
-              fontSize: 11,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 9 : 11,
               color: Colors.black87,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        const Text(
+        Text(
           ": ",
           style: TextStyle(
-            fontSize: 11,
+            fontSize: isSmallScreen ? 9 : 11,
             color: Colors.black87,
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 11,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 9 : 11,
               color: Colors.black87,
             ),
           ),

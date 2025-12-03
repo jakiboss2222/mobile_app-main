@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-
-// Import semua halaman
-import 'kehadiran_kewarganegaraan.dart';
-import 'kehadiran_pancasila.dart';
-import 'kehadiran_etika_profesi.dart';
+import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../api/api_service.dart';
+import 'kehadiran_detail_page.dart';
 
 class KehadiranPages extends StatefulWidget {
   const KehadiranPages({super.key});
@@ -15,23 +14,58 @@ class KehadiranPages extends StatefulWidget {
 class _KehadiranPagesState extends State<KehadiranPages> {
   TextEditingController searchController = TextEditingController();
 
-  final List<Map<String, dynamic>> kehadiran = [
-    {"kode": "#144", "nama": "Kewarganegaraan"},
-    {"kode": "#75", "nama": "Pancasila"},
-    {"kode": "#100", "nama": "Etika Profesi Dan Bimbingan Karir"},
-  ];
-
+  List<Map<String, dynamic>> kehadiran = [];
   List<Map<String, dynamic>> filteredKehadiran = [];
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    filteredKehadiran = kehadiran;
+    _loadJadwal();
+  }
+
+  // Load jadwal from API
+  Future<void> _loadJadwal() async {
+    setState(() => isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      Dio dio = Dio();
+      dio.options.headers['Authorization'] = 'Bearer $token';
+
+      final response = await dio.get("${ApiService.baseUrl}jadwal/daftar-jadwal");
+      
+      if (response.data != null && response.data['jadwals'] != null) {
+        List<dynamic> data = response.data['jadwals'];
+        
+        setState(() {
+          kehadiran = data.map((item) => item as Map<String, dynamic>).toList();
+          filteredKehadiran = kehadiran;
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Error loading jadwal: $e");
+      setState(() => isLoading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Gagal memuat data mata kuliah"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void filterSearch(String query) {
     final hasil = kehadiran.where((item) {
-      final nama = item["nama"].toString().toLowerCase();
+      final nama = item["nama_matakuliah"].toString().toLowerCase();
       final kode = item["kode"].toString().toLowerCase();
       final input = query.toLowerCase();
       return nama.contains(input) || kode.contains(input);
@@ -42,23 +76,13 @@ class _KehadiranPagesState extends State<KehadiranPages> {
     });
   }
 
-  void navigateToPage(String namaMatkul) {
-    if (namaMatkul == "Kewarganegaraan") {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => KehadiranKewarganegaraanPage()),
-      );
-    } else if (namaMatkul == "Pancasila") {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => KehadiranPancasilaPage()),
-      );
-    } else if (namaMatkul == "Etika Profesi Dan Bimbingan Karir") {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => KehadiranEtikaProfesiPage()),
-      );
-    }
+  void navigateToDetail(Map<String, dynamic> course) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => KehadiranDetailPage(courseData: course),
+      ),
+    );
   }
 
   @override
@@ -119,67 +143,73 @@ class _KehadiranPagesState extends State<KehadiranPages> {
               const SizedBox(height: 20),
 
               Expanded(
-                child: filteredKehadiran.isEmpty
+                child: isLoading
                     ? const Center(
-                        child: Text(
-                          "Tidak ada hasil",
-                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
                         ),
                       )
-                    : ListView.builder(
-                        itemCount: filteredKehadiran.length,
-                        itemBuilder: (context, index) {
-                          final item = filteredKehadiran[index];
-
-                          return GestureDetector(
-                            onTap: () => navigateToPage(item["nama"]),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 18, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: const Color(0xff284169),
-                                borderRadius: BorderRadius.circular(25),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.25),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.book,
-                                      color: Colors.white, size: 22),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item["kode"],
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          item["nama"],
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                ],
-                              ),
+                    : filteredKehadiran.isEmpty
+                        ? const Center(
+                            child: Text(
+                              "Tidak ada hasil",
+                              style: TextStyle(color: Colors.white, fontSize: 16),
                             ),
-                          );
-                        },
-                      ),
+                          )
+                        : ListView.builder(
+                            itemCount: filteredKehadiran.length,
+                            itemBuilder: (context, index) {
+                              final item = filteredKehadiran[index];
+
+                              return GestureDetector(
+                                onTap: () => navigateToDetail(item),
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 18, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xff284169),
+                                    borderRadius: BorderRadius.circular(25),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.25),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 4),
+                                      )
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.book,
+                                          color: Colors.white, size: 22),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item["kode"] ?? "-",
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              item["nama_matakuliah"] ?? "-",
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
               ),
             ],
           ),

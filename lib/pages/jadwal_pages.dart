@@ -23,189 +23,43 @@ class _JadwalPagesState extends State<JadwalPages> {
     _loadJadwal();
   }
 
-  // Load jadwal - using dummy data
+  // Load jadwal from API
   Future<void> _loadJadwal() async {
     setState(() => isLoading = true);
 
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
-
     try {
-      // Data dummy jadwal berdasarkan gambar
-      List<Map<String, dynamic>> dummyJadwal = [
-        // SENIN
-        {
-          "kode": "#1",
-          "nama_matakuliah": "KEWARGANEGARAAN",
-          "dosen": "LUTVI, RIYANDARI, S.Pd, M.Si",
-          "nama_hari": "Senin",
-          "jam_mulai": "08:30",
-          "jam_selesai": "09:30",
-          "nama_ruang": "KB R 2.1",
-          "jumlah_sks": 2,
-        },
-        {
-          "kode": "#6",
-          "nama_matakuliah": "PANCASILA",
-          "dosen": "SYAH FIRDAUS PALUMPUN, M.Si",
-          "nama_hari": "Senin",
-          "jam_mulai": "09:30",
-          "jam_selesai": "10:30",
-          "nama_ruang": "KB R 2.2",
-          "jumlah_sks": 2,
-        },
-        {
-          "kode": "#7",
-          "nama_matakuliah": "MANAJEMEN BISNIS",
-          "dosen": "NOVITA SETIANTI, S.E,M.Ak,Ak.CA",
-          "nama_hari": "Senin",
-          "jam_mulai": "10:30",
-          "jam_selesai": "11:30",
-          "nama_ruang": "KB R 2.2",
-          "jumlah_sks": 2,
-        },
-        
-        // SELASA
-        {
-          "kode": "#107",
-          "nama_matakuliah": "AGAMA",
-          "dosen": "Ramelan, S.Pd., M.Pd",
-          "nama_hari": "Selasa",
-          "jam_mulai": "09:00",
-          "jam_selesai": "10:00",
-          "nama_ruang": "KS R 1.1",
-          "jumlah_sks": 2,
-        },
-        {
-          "kode": "#110",
-          "nama_matakuliah": "TECHNOPRENEURSHIP",
-          "dosen": "SUNARYONO M.Kom",
-          "nama_hari": "Selasa",
-          "jam_mulai": "10:00",
-          "jam_selesai": "11:00",
-          "nama_ruang": "KS R 1.2",
-          "jumlah_sks": 2,
-        },
-        {
-          "kode": "#18",
-          "nama_matakuliah": "RANGKAIAN DIGITAL",
-          "dosen": "SINGGIH SETIA ANDIKO, S.Kom",
-          "nama_hari": "Selasa",
-          "jam_mulai": "13:00",
-          "jam_selesai": "14:30",
-          "nama_ruang": "KB R 2.1",
-          "jumlah_sks": 2,
-        },
-        
-        // RABU
-        {
-          "kode": "#116",
-          "nama_matakuliah": "MOBILE PROGRAMMING",
-          "dosen": "MUHAMAD AZIZ SETIA LAKSONO, M.Kom",
-          "nama_hari": "Rabu",
-          "jam_mulai": "08:00",
-          "jam_selesai": "10:00",
-          "nama_ruang": "KS LAB",
-          "jumlah_sks": 3,
-        },
-        {
-          "kode": "#117",
-          "nama_matakuliah": "DATA MINING",
-          "dosen": "SITI DELIMA SARI, M.Kom",
-          "nama_hari": "Rabu",
-          "jam_mulai": "10:00",
-          "jam_selesai": "11:30",
-          "nama_ruang": "KS LAB",
-          "jumlah_sks": 2,
-        },
-        
-        // KAMIS
-        {
-          "kode": "#127",
-          "nama_matakuliah": "ETIKA PROFESI DAN BIMBINGAN KARIR",
-          "dosen": "RIANTI YUNITA K S.Pd, M.Kom",
-          "nama_hari": "Kamis",
-          "jam_mulai": "13:00",
-          "jam_selesai": "14:00",
-          "nama_ruang": "KS. R1.3",
-          "jumlah_sks": 2,
-        },
-        {
-          "kode": "#8",
-          "nama_matakuliah": "BAHASA INDONESIA",
-          "dosen": "UKI HARES YULIANTI, S.Pd, M.Pd.",
-          "nama_hari": "Kamis",
-          "jam_mulai": "14:00",
-          "jam_selesai": "15:00",
-          "nama_ruang": "KS.R1.4",
-          "jumlah_sks": 2,
-        },
-      ];
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      Dio dio = Dio();
+      dio.options.headers['Authorization'] = 'Bearer $token';
+
+      final response = await dio.get("${ApiService.baseUrl}jadwal/daftar-jadwal");
       
-      setState(() {
-        jadwal = dummyJadwal;
-        // Sort jadwal by day, with today's schedule first
-        jadwal = _sortJadwalByDay(jadwal);
-        filteredJadwal = jadwal;
-        isLoading = false;
-      });
+      if (response.data != null && response.data['jadwals'] != null) {
+        List<dynamic> data = response.data['jadwals'];
+        
+        setState(() {
+          jadwal = data.map((item) => item as Map<String, dynamic>).toList();
+          filteredJadwal = jadwal;
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+      }
     } catch (e) {
       debugPrint("Error loading jadwal: $e");
       setState(() => isLoading = false);
-    }
-  }
-
-  // Sort jadwal by day of week, with today's schedule appearing first
-  List<Map<String, dynamic>> _sortJadwalByDay(List<Map<String, dynamic>> jadwalList) {
-    if (jadwalList.isEmpty) return jadwalList;
-
-    // Map hari ke index (Monday = 1, Sunday = 7)
-    final Map<String, int> dayToIndex = {
-      'senin': 1,
-      'selasa': 2,
-      'rabu': 3,
-      'kamis': 4,
-      'jumat': 5,
-      'sabtu': 6,
-      'minggu': 7,
-    };
-
-    // Get current day of week (1 = Monday, 7 = Sunday)
-    final now = DateTime.now();
-    final currentDayIndex = now.weekday;
-
-    // Sort jadwal
-    jadwalList.sort((a, b) {
-      final String dayA = (a['nama_hari'] ?? '').toString().toLowerCase();
-      final String dayB = (b['nama_hari'] ?? '').toString().toLowerCase();
       
-      final int indexA = dayToIndex[dayA] ?? 8;
-      final int indexB = dayToIndex[dayB] ?? 8;
-      
-      // Calculate distance from current day
-      // Today's schedule gets priority (distance = 0)
-      // Tomorrow gets distance = 1, etc.
-      int distanceA = (indexA - currentDayIndex) % 7;
-      int distanceB = (indexB - currentDayIndex) % 7;
-      
-      // If distance is negative, add 7 to make it positive
-      if (distanceA < 0) distanceA += 7;
-      if (distanceB < 0) distanceB += 7;
-      
-      // Compare distances
-      final dayComparison = distanceA.compareTo(distanceB);
-      
-      // If same day, sort by time
-      if (dayComparison == 0) {
-        final String timeA = a['jam_mulai'] ?? '';
-        final String timeB = b['jam_mulai'] ?? '';
-        return timeA.compareTo(timeB);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Gagal memuat jadwal"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-      
-      return dayComparison;
-    });
-
-    return jadwalList;
+    }
   }
 
   void filterSearch(String query) {
@@ -222,23 +76,45 @@ class _JadwalPagesState extends State<JadwalPages> {
     });
   }
 
-  // Check if schedule is for today
-  bool _isToday(Map<String, dynamic> jadwalItem) {
-    final Map<String, int> dayToIndex = {
-      'senin': 1,
-      'selasa': 2,
-      'rabu': 3,
-      'kamis': 4,
-      'jumat': 5,
-      'sabtu': 6,
-      'minggu': 7,
-    };
-    
-    final String day = (jadwalItem['nama_hari'] ?? '').toString().toLowerCase();
-    final int dayIndex = dayToIndex[day] ?? 0;
-    final int currentDayIndex = DateTime.now().weekday;
-    
-    return dayIndex == currentDayIndex;
+  // Check if schedule is currently ongoing
+  bool _isOngoing(Map<String, dynamic> item) {
+    try {
+      final now = DateTime.now();
+      
+      // 1. Check Day
+      final Map<String, int> dayToIndex = {
+        'senin': 1, 'selasa': 2, 'rabu': 3, 
+        'kamis': 4, 'jumat': 5, 'sabtu': 6, 'minggu': 7
+      };
+      
+      final String dayName = (item['nama_hari'] ?? '').toString().toLowerCase();
+      final int scheduleDay = dayToIndex[dayName] ?? 0;
+      
+      if (now.weekday != scheduleDay) return false;
+      
+      // 2. Check Time
+      final String startStr = item['jam_mulai'] ?? '00:00';
+      final String endStr = item['jam_selesai'] ?? '00:00';
+      
+      final startParts = startStr.split(':');
+      final endParts = endStr.split(':');
+      
+      if (startParts.length != 2 || endParts.length != 2) return false;
+      
+      final int startHour = int.parse(startParts[0]);
+      final int startMinute = int.parse(startParts[1]);
+      
+      final int endHour = int.parse(endParts[0]);
+      final int endMinute = int.parse(endParts[1]);
+      
+      final int currentMinutes = now.hour * 60 + now.minute;
+      final int startTotalMinutes = startHour * 60 + startMinute;
+      final int endTotalMinutes = endHour * 60 + endMinute;
+      
+      return currentMinutes >= startTotalMinutes && currentMinutes < endTotalMinutes;
+    } catch (e) {
+      return false;
+    }
   }
 
   @override
@@ -316,19 +192,19 @@ class _JadwalPagesState extends State<JadwalPages> {
                             itemCount: filteredJadwal.length,
                             itemBuilder: (context, index) {
                               final item = filteredJadwal[index];
-                              final bool isToday = _isToday(item);
+                              final bool isOngoing = _isOngoing(item);
                               
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: isToday 
-                                      ? const Color(0xff2d5aa0) // Brighter blue for today
+                                  color: isOngoing 
+                                      ? const Color(0xff2d5aa0) // Brighter blue for ongoing
                                       : const Color(0xff284169),
                                   borderRadius: BorderRadius.circular(20),
-                                  border: isToday
+                                  border: isOngoing
                                       ? Border.all(
-                                          color: const Color(0xFF4FC3F7), // Cyan accent border
+                                          color: Colors.greenAccent, // Green border for ongoing
                                           width: 2,
                                         )
                                       : null,
@@ -343,7 +219,7 @@ class _JadwalPagesState extends State<JadwalPages> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Kode & SKS & Badge Hari Ini
+                                    // Kode & SKS & Status Badge
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
@@ -358,7 +234,7 @@ class _JadwalPagesState extends State<JadwalPages> {
                                                   fontSize: 15,
                                                 ),
                                               ),
-                                              if (isToday) ...[
+                                              if (isOngoing) ...[
                                                 const SizedBox(width: 8),
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(
@@ -366,16 +242,11 @@ class _JadwalPagesState extends State<JadwalPages> {
                                                     vertical: 3,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    gradient: const LinearGradient(
-                                                      colors: [
-                                                        Color(0xFF4FC3F7),
-                                                        Color(0xFF29B6F6),
-                                                      ],
-                                                    ),
+                                                    color: Colors.green,
                                                     borderRadius: BorderRadius.circular(12),
                                                   ),
                                                   child: const Text(
-                                                    "Hari Ini",
+                                                    "Sedang Berjalan",
                                                     style: TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 10,
